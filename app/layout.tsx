@@ -40,11 +40,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
-        <footer className="no-print mt-16 border-t border-brand/10 bg-white/50">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 text-sm text-slate-500">
+        <footer className="cosmic cosmic-stars no-print relative mt-16 overflow-hidden">
+          <div className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-8 text-sm text-white/70">
             <div className="flex items-center gap-2">
-              <Owl className="w-6" />
-              <span className="font-semibold brand-text">JESAP</span>
+              <Owl className="w-7" tone="white" />
+              <span className="font-semibold text-white">JESAP</span>
             </div>
             <span>Bandi × DNA — MVP {new Date().getFullYear()}</span>
           </div>

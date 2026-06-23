@@ -142,8 +142,7 @@ export function DnaGraph({ graph }: { graph: DnaGraph }) {
     <div className="relative">
       <div
         ref={wrapRef}
-        className="relative h-[460px] w-full overflow-hidden rounded-2xl"
-        style={{ background: 'radial-gradient(circle at 50% 40%, rgba(181,105,176,.10), transparent 70%)' }}
+        className="cosmic cosmic-stars relative h-[460px] w-full overflow-hidden rounded-2xl ring-1 ring-white/10"
       >
         <svg
           ref={svgRef}
@@ -170,17 +169,17 @@ export function DnaGraph({ graph }: { graph: DnaGraph }) {
               <g key={i}>
                 <line
                   x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-                  stroke={active ? '#8a3b86' : '#c9a9c6'}
+                  stroke={active ? '#f0b6ea' : '#d9c2e0'}
                   strokeWidth={active ? 2 : 1}
-                  strokeOpacity={hover && !active ? 0.15 : active ? 0.9 : 0.45}
+                  strokeOpacity={hover && !active ? 0.12 : active ? 1 : 0.3}
                 />
                 {active && (
                   <text
                     x={((s.x ?? 0) + (t.x ?? 0)) / 2}
                     y={((s.y ?? 0) + (t.y ?? 0)) / 2 - 4}
                     textAnchor="middle"
-                    className="fill-brand-ink"
-                    style={{ fontSize: 10, fontWeight: 600, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}
+                    fill="#ffffff"
+                    style={{ fontSize: 10.5, fontWeight: 600, paintOrder: 'stroke', stroke: 'rgba(10,8,28,.85)', strokeWidth: 3.5 }}
                   >
                     {l.meaning}
                   </text>
@@ -212,16 +211,16 @@ export function DnaGraph({ graph }: { graph: DnaGraph }) {
                   <circle
                     r={r}
                     fill={COLOR[n.type]}
-                    stroke="#fff"
+                    stroke="rgba(255,255,255,.85)"
                     strokeWidth={1.5}
-                    style={{ filter: !dim ? 'drop-shadow(0 2px 4px rgba(111,47,107,.3))' : 'none' }}
+                    style={{ filter: !dim ? 'drop-shadow(0 0 6px rgba(181,105,176,.6))' : 'none' }}
                   />
                 )}
                 <text
                   y={r + 13}
                   textAnchor="middle"
-                  className="fill-slate-600"
-                  style={{ fontSize: 10.5, fontWeight: 500, paintOrder: 'stroke', stroke: '#faf7fb', strokeWidth: 3 }}
+                  fill="#ece0ec"
+                  style={{ fontSize: 10.5, fontWeight: 500, paintOrder: 'stroke', stroke: 'rgba(10,8,28,.9)', strokeWidth: 3 }}
                 >
                   {n.label}
                 </text>
@@ -230,7 +229,7 @@ export function DnaGraph({ graph }: { graph: DnaGraph }) {
           })}
         </svg>
 
-        <div className="pointer-events-none absolute bottom-3 left-3 text-[11px] text-slate-400">
+        <div className="pointer-events-none absolute bottom-3 left-3 text-[11px] text-white/60">
           Trascina i nodi · passa sopra un nodo per vedere i collegamenti
         </div>
       </div>
