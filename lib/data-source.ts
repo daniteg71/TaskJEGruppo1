@@ -2,6 +2,7 @@
 // e il flag DATA_MODE decide se rispondono dai mock o da Drive+Gemini/scraping.
 
 import { getCachedDna, invalidateDna } from './dna-cache';
+import { buildDnaGraph, type DnaGraph } from './dna-graph';
 import { MOCK_ANALISI, MOCK_BANDI, MOCK_BANDI_ONLINE, MOCK_DNA } from './mock-data';
 import type { AnalisiBando, BandoSource, BandoSummary, DnaSnapshot } from './types';
 
@@ -23,6 +24,12 @@ export async function getDna(): Promise<DnaSnapshot> {
 // Forza il rebuild del DNA alla prossima richiesta (bottone "Aggiorna DNA" / webhook Drive).
 export function refreshDna(): void {
   invalidateDna();
+}
+
+// Grafo del DNA (knowledge base). Deriva dallo snapshot, quindi cambia col Drive.
+export async function getDnaGraph(): Promise<DnaGraph> {
+  const dna = await getDna();
+  return buildDnaGraph(dna);
 }
 
 // ---- Bandi -----------------------------------------------------------------
