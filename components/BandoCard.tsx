@@ -11,7 +11,16 @@ export function BandoCard({ bando }: { bando: BandoSummary }) {
       <div className="flex items-start gap-4">
         <ScoreGauge value={bando.punteggio} />
         <div className="flex-1">
-          <div className="text-xs uppercase tracking-wide text-slate-500">{bando.area}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-slate-500">{bando.area}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                bando.fonte === 'scraping' ? 'bg-brand-accent/20 text-cyan-700' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {bando.fonte === 'scraping' ? '🔍 online' : '📁 drive'}
+            </span>
+          </div>
           <div className="mt-1 font-semibold text-slate-900">{bando.titolo}</div>
           <div className="mt-1 text-sm text-slate-600">{bando.ente}</div>
           <p className="mt-3 text-sm text-slate-700">{bando.sintesiBreve}</p>

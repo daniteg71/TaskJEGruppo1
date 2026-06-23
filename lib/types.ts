@@ -26,6 +26,9 @@ export type ChecklistItem = {
   responsabile?: string;
 };
 
+// Da dove arriva un bando: scraping su internet oppure file caricati su Drive.
+export type BandoSource = 'scraping' | 'drive';
+
 export type BandoSummary = {
   id: string;
   titolo: string;
@@ -35,6 +38,9 @@ export type BandoSummary = {
   area: AreaInteresse;
   punteggio: number;
   sintesiBreve: string;
+  fonte: BandoSource;
+  // Presente solo per i bandi trovati via scraping: link alla pagina originale.
+  url?: string;
 };
 
 export type AnalisiBando = {

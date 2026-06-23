@@ -33,6 +33,7 @@ export const MOCK_BANDI: BandoSummary[] = [
     area: 'Data & Automation',
     punteggio: 8.5,
     sintesiBreve: 'Forte allineamento su servizi data + PM certificato disponibile.',
+    fonte: 'drive',
   },
   {
     id: 'bando-asl-002',
@@ -43,6 +44,7 @@ export const MOCK_BANDI: BandoSummary[] = [
     area: 'AI & Machine Learning',
     punteggio: 6.0,
     sintesiBreve: 'Mancano certificazioni sanitarie ma le competenze ML coprono il core.',
+    fonte: 'drive',
   },
   {
     id: 'bando-comune-003',
@@ -53,6 +55,7 @@ export const MOCK_BANDI: BandoSummary[] = [
     area: 'Cloud & Infrastructure',
     punteggio: 7.5,
     sintesiBreve: 'Importo basso ma esperienza diretta su casi simili.',
+    fonte: 'drive',
   },
   {
     id: 'bando-univ-004',
@@ -63,6 +66,48 @@ export const MOCK_BANDI: BandoSummary[] = [
     area: 'Cybersecurity',
     punteggio: 4.0,
     sintesiBreve: 'Area scoperta dal DNA: nessun pentester nei CV.',
+    fonte: 'drive',
+  },
+];
+
+// Risultati finti per la fonte "scraping online" (bottone Cerca bandi online).
+// Hanno fonte: 'scraping' e un url alla pagina del bando.
+export const MOCK_BANDI_ONLINE: BandoSummary[] = [
+  {
+    id: 'online-consip-101',
+    titolo: 'Servizi di data analytics per la PA centrale',
+    ente: 'Consip / MEPA',
+    scadenza: '2026-09-30',
+    importo: 750_000,
+    area: 'Data & Automation',
+    punteggio: 9.0,
+    sintesiBreve: 'Match quasi totale col DNA: importo alto e requisiti tecnici coperti.',
+    fonte: 'scraping',
+    url: 'https://www.acquistinretepa.it/opencms/opencms/bando_esempio_101.html',
+  },
+  {
+    id: 'online-regione-102',
+    titolo: 'Automazione processi documentali sanità regionale',
+    ente: 'Regione Veneto',
+    scadenza: '2026-08-22',
+    importo: 310_000,
+    area: 'AI & Machine Learning',
+    punteggio: 7.0,
+    sintesiBreve: 'Buon fit AI; verificare requisito esperienza settore sanitario.',
+    fonte: 'scraping',
+    url: 'https://bandi.regione.veneto.it/esempio-102',
+  },
+  {
+    id: 'online-anac-103',
+    titolo: 'Infrastruttura cloud per archivi digitali comunali',
+    ente: 'Comune di Torino',
+    scadenza: '2026-07-19',
+    importo: 180_000,
+    area: 'Cloud & Infrastructure',
+    punteggio: 6.5,
+    sintesiBreve: 'Competenze cloud presenti; tempi stretti sulla scadenza.',
+    fonte: 'scraping',
+    url: 'https://www.comune.torino.it/appalti/esempio-103',
   },
 ];
 

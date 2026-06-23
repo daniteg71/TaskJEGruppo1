@@ -2,6 +2,31 @@
 
 Valutazione automatica della fattibilità e convenienza di un bando pubblico rispetto al "DNA" aziendale (Formulario servizi + Bilanci + Visura + CV).
 
+## Due fonti per i bandi
+
+La dashboard ha due tasti:
+
+- **🔍 Cerca bandi online** — scraping sui portali appalti pubblici. In live, `lib/scraper.ts`
+  costruisce le query dalle aree del DNA, interroga i portali (API ufficiali dove possibile),
+  e valuta ogni bando con Gemini (punteggio 0–10). Ogni risultato ha un link al bando originale.
+- **📁 Bandi da Drive** — i 4-5 PDF pre-caricati nella cartella Drive (path già esistente).
+
+L'API è `/api/bandi?source=scraping|drive`. In mock entrambe restituiscono dati finti.
+
+## Come si aggiorna il DNA (decisione architetturale)
+
+Il DNA (info incrociate dell'azienda: Formulario + Bilanci + Visura + CV) usa il modello
+**rebuild-on-demand con cache** (`lib/dna-cache.ts`):
+
+- Si ricostruisce dal Drive alla prima richiesta e resta in cache (default 10 min, `DNA_CACHE_TTL_MS`).
+- Le ricerche successive sono istantanee.
+- Il bottone **↻ Aggiorna DNA** (o `POST /api/dna/refresh`) forza il rebuild.
+
+Perché non il webhook "Drive sempre connesso"? Perché i watch channel di Drive scadono ogni ~7gg
+e richiedono cron di rinnovo + storage: troppo per un MVP con pochi file. Il path push è però già
+predisposto: `drive.watchDrive()` (stub) + endpoint `POST /api/drive/webhook` che chiama `refreshDna()`.
+Per attivarlo in futuro basta implementare quei due punti, senza toccare il resto.
+
 ## Stato attuale
 
 Lo scheletro è completo e gira in **modalità mock**: il frontend mostra 4 bandi finti con punteggio 0–10, dashboard, analisi dettagliata (10 criteri, match table, analisi critica, checklist) ed export PDF (via `window.print`).

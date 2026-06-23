@@ -28,3 +28,13 @@ export async function buildDnaSnapshot(): Promise<DnaSnapshot> {
     '[drive.buildDnaSnapshot] non ancora implementato — aggregare: Formulario.xlsx (servizi/aree), Bilanci.pdf (fatturato/margine), Visura.pdf (anagrafica), CV/*.pdf (certificazioni/ruoli) in un singolo oggetto DnaSnapshot.'
   );
 }
+
+// OPZIONALE — path "Drive sempre connesso" (push/webhook).
+// Registra un watch channel su DRIVE_ROOT_FOLDER_ID (drive.files.watch). Drive chiamerà
+// l'endpoint /api/drive/webhook a ogni modifica; quell'endpoint deve invocare refreshDna()
+// per invalidare la cache. I watch channel scadono ~7gg: vanno rinnovati con un cron.
+export async function watchDrive(): Promise<void> {
+  throw new Error(
+    '[drive.watchDrive] non ancora implementato — registrare drive.files.watch sulla cartella DNA con address = URL pubblico di /api/drive/webhook.'
+  );
+}

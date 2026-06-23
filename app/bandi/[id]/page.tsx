@@ -34,10 +34,20 @@ export default async function BandoPage({ params }: { params: { id: string } }) 
             <div className="text-xs uppercase tracking-wide text-slate-500">{bando.area}</div>
             <h1 className="text-2xl font-bold mt-1">{bando.titolo}</h1>
             <div className="text-slate-600">{bando.ente}</div>
-            <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
               <span className="text-slate-600">Scadenza: {new Date(bando.scadenza).toLocaleDateString('it-IT')}</span>
               <span className="text-slate-600">Importo: € {bando.importo.toLocaleString('it-IT')}</span>
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${r.cls}`}>{r.txt}</span>
+              {bando.url && (
+                <a
+                  href={bando.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="no-print text-brand-accent underline hover:opacity-80"
+                >
+                  Apri bando originale ↗
+                </a>
+              )}
             </div>
           </div>
           <ExportButton />
