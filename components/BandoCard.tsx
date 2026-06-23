@@ -15,7 +15,7 @@ export function BandoCard({ bando }: { bando: BandoSummary }) {
             <span className="text-xs uppercase tracking-wide text-slate-500">{bando.area}</span>
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                bando.fonte === 'scraping' ? 'bg-brand-accent/20 text-cyan-700' : 'bg-slate-100 text-slate-600'
+                bando.fonte === 'scraping' ? 'bg-brand-light/20 text-brand-ink' : 'bg-slate-100 text-slate-600'
               }`}
             >
               {bando.fonte === 'scraping' ? '🔍 online' : '📁 drive'}
