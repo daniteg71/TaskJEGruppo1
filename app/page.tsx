@@ -1,11 +1,14 @@
+import { redirect } from 'next/navigation';
 import { BandiSearch } from '@/components/BandiSearch';
 import { DnaStatus } from '@/components/DnaStatus';
 import { Owl } from '@/components/Owl';
+import { getCompanyConfig } from '@/lib/company-config';
 import { getBandi, getDna } from '@/lib/data-source';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Dashboard() {
+  if (!getCompanyConfig()) redirect('/setup');
   const [bandiDrive, dna] = await Promise.all([getBandi('drive'), getDna()]);
 
   return (

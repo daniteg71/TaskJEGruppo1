@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
 import { Owl } from '@/components/Owl';
+import { getCompanyConfig } from '@/lib/company-config';
 
 // Font identità JESAP (come nel CRM: crm.jesap.it / JesapIt/Jesap-CRM)
 const inter = Inter({
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const config = getCompanyConfig();
   return (
     <html lang="it" className={inter.variable}>
       <body>
@@ -30,12 +32,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="font-semibold leading-tight tracking-tight">
                   Bandi <span className="brand-text font-bold">×</span> DNA
                 </div>
-                <div className="text-xs text-slate-500">JESAP · valutazione bandi</div>
+                <div className="text-xs text-slate-500">
+                  {config ? `${config.companyName} · valutazione bandi` : 'valutazione bandi'}
+                </div>
               </div>
             </Link>
             <nav className="text-sm text-slate-600 flex gap-5">
               <Link href="/" className="hover:text-brand transition-colors">Dashboard</Link>
               <Link href="/dna" className="hover:text-brand transition-colors">DNA</Link>
+              <Link href="/setup" className="hover:text-brand transition-colors">⚙︎ Azienda</Link>
             </nav>
           </div>
         </header>

@@ -1,11 +1,15 @@
+import { redirect } from 'next/navigation';
 import { DnaGraph } from '@/components/DnaGraph';
 import { DnaStatus } from '@/components/DnaStatus';
 import { Owl } from '@/components/Owl';
+import { getCompanyConfig } from '@/lib/company-config';
 import { getDna, getDnaGraph } from '@/lib/data-source';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DnaPage() {
+  const config = getCompanyConfig();
+  if (!config) redirect('/setup');
   const [dna, graph] = await Promise.all([getDna(), getDnaGraph()]);
   return (
     <div className="space-y-8">
@@ -18,6 +22,12 @@ export default async function DnaPage() {
           Ogni nodo è un file del Drive aziendale; ogni collegamento ha un significato (passa sopra
           un nodo per leggerlo). Il grafo si rigenera dai file presenti: se il Drive cambia, cambia
           anche la mappa.
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          Cartella collegata:{' '}
+          <a href={config.driveFolderUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+            {config.driveFolderId}
+          </a>
         </p>
       </div>
 

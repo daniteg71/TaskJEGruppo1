@@ -16,10 +16,16 @@ const MODE = (process.env.DATA_MODE ?? 'mock').toLowerCase();
 // Sempre passato dalla cache (rebuild-on-demand + caching, vedi dna-cache.ts).
 
 export async function getDna(): Promise<DnaSnapshot> {
+  const { getCompanyConfig } = await import('./company-config');
+  const config = getCompanyConfig();
   return getCachedDna(async () => {
     if (MODE === 'live') {
       const { buildDnaSnapshot } = await import('./drive');
-      return buildDnaSnapshot();
+      return buildDnaSnapshot(config?.driveFolderId);
+    }
+    // mock: usa il nome azienda configurato (la cartella in live verrebbe letta davvero)
+    if (config?.companyName) {
+      return { ...MOCK_DNA, visura: { ...MOCK_DNA.visura, ragioneSociale: config.companyName } };
     }
     return MOCK_DNA;
   });

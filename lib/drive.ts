@@ -23,9 +23,10 @@ export async function fetchBandoTesto(_fileId: string): Promise<string> {
   );
 }
 
-export async function buildDnaSnapshot(): Promise<DnaSnapshot> {
+export async function buildDnaSnapshot(folderId?: string): Promise<DnaSnapshot> {
   throw new Error(
-    '[drive.buildDnaSnapshot] non ancora implementato — aggregare: Formulario.xlsx (servizi/aree), Bilanci.pdf (fatturato/margine), Visura.pdf (anagrafica), CV/*.pdf (certificazioni/ruoli) in un singolo oggetto DnaSnapshot.'
+    `[drive.buildDnaSnapshot] non ancora implementato — leggere la cartella Drive ${folderId ?? '(folderId mancante: configurarlo in /setup)'} ` +
+      'e aggregare: Formulario.xlsx (servizi/aree), Bilanci.pdf (fatturato/margine), Visura.pdf (anagrafica), CV/*.pdf (certificazioni/ruoli) in un singolo DnaSnapshot.'
   );
 }
 
