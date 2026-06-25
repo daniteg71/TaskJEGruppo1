@@ -78,8 +78,8 @@ export function GrantsDashboard({
               Bandi per la tua azienda
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ricerca in tempo reale sul web, ordinata per coerenza con il tuo
-              DNA aziendale.
+              Scraping in tempo reale dal portale incentivi MIMIT, ordinato per
+              coerenza con il tuo DNA aziendale.
             </p>
           </div>
           <Button size="lg" onClick={runSearch} disabled={isPending}>
