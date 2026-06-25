@@ -1,0 +1,80 @@
+// Tipi del dominio. (Versione MVP senza Postgres: la persistenza è in-memory, vedi lib/store.ts.)
+// Quando arriverà un vero DB, qui si rimettono le tabelle drizzle e in store.ts si ricollega pg.
+
+export type Company = {
+  id: number
+  name: string
+  driveFolderName: string | null
+  driveFolderId: string | null
+  sector: string | null
+  description: string | null
+  dna: CompanyDna | null
+  createdAt: Date
+}
+
+export type Grant = {
+  id: number
+  companyId: number
+  title: string
+  sourceUrl: string | null
+  sourceName: string | null
+  description: string | null
+  deadline: string | null
+  amount: string | null
+  category: string | null
+  region: string | null
+  matchScore: number | null
+  strategy: GrantStrategy | null
+  createdAt: Date
+}
+
+// ---- Tipi salvati come JSON ----
+
+export type DnaNode = {
+  id: string
+  label: string
+  /** la categoria determina colore + cluster nella galassia */
+  group:
+    | 'core'
+    | 'competenze'
+    | 'mercato'
+    | 'finanza'
+    | 'innovazione'
+    | 'team'
+    | 'asset'
+  value: number // 0-100 forza, determina la dimensione del nodo
+  summary: string
+}
+
+export type DnaLink = {
+  source: string
+  target: string
+  strength: number // 0-1
+}
+
+export type CompanyDna = {
+  headline: string
+  nodes: DnaNode[]
+  links: DnaLink[]
+  strengths: string[]
+  gaps: string[]
+}
+
+export type GrantStrategy = {
+  summary: string
+  probability: number // 0-100
+  fitReasons: string[]
+  risks: string[]
+  steps: string[]
+  recommendedTimeline: string
+}
+
+// Una ricerca salvata nello storico.
+export type SearchRun = {
+  id: number
+  companyId: number
+  at: Date
+  found: number
+  scraped: number
+  grants: Grant[]
+}

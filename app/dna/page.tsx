@@ -1,41 +1,29 @@
-import { redirect } from 'next/navigation';
-import { DnaGraph } from '@/components/DnaGraph';
-import { DnaStatus } from '@/components/DnaStatus';
-import { Owl } from '@/components/Owl';
-import { getCompanyConfig } from '@/lib/company-config';
-import { getDna, getDnaGraph } from '@/lib/data-source';
-
-export const dynamic = 'force-dynamic';
+import { redirect } from 'next/navigation'
+import { getCurrentCompany } from '@/app/actions/company'
+import { AppNav } from '@/components/app-nav'
+import { DnaExplorer } from '@/components/dna/dna-explorer'
 
 export default async function DnaPage() {
-  const config = getCompanyConfig();
-  if (!config) redirect('/setup');
-  const [dna, graph] = await Promise.all([getDna(), getDnaGraph()]);
+  const company = await getCurrentCompany()
+  if (!company) redirect('/')
+
+  if (!company.dna) {
+    return (
+      <main className="aurora-bg min-h-screen">
+        <AppNav companyName={company.name} />
+        <div className="flex h-[60vh] items-center justify-center">
+          <p className="text-muted-foreground">
+            DNA non disponibile. Riprova dalla pagina iniziale.
+          </p>
+        </div>
+      </main>
+    )
+  }
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-          <Owl className="w-9" motion="float" />
-          <span>Knowledge base del <span className="brand-text">DNA</span></span>
-        </h1>
-        <p className="mt-2 max-w-2xl text-slate-600">
-          Ogni nodo è un file del Drive aziendale; ogni collegamento ha un significato (passa sopra
-          un nodo per leggerlo). Il grafo si rigenera dai file presenti: se il Drive cambia, cambia
-          anche la mappa.
-        </p>
-        <p className="mt-2 text-xs text-slate-500">
-          Cartella collegata:{' '}
-          <a href={config.driveFolderUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
-            {config.driveFolderId}
-          </a>
-        </p>
-      </div>
-
-      <div className="rounded-3xl glass brand-ring p-4">
-        <DnaGraph graph={graph} />
-      </div>
-
-      <DnaStatus dna={dna} />
-    </div>
-  );
+    <main className="aurora-bg min-h-screen">
+      <AppNav companyName={company.name} />
+      <DnaExplorer dna={company.dna} companyName={company.name} />
+    </main>
+  )
 }
