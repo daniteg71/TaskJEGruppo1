@@ -69,6 +69,9 @@ export type GrantStrategy = {
   recommendedTimeline: string
 }
 
+// File del Drive aziendale.
+export type DriveFile = { id: string; name: string; mimeType: string }
+
 // Una ricerca salvata nello storico.
 export type SearchRun = {
   id: number

@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Atom, LayoutDashboard } from 'lucide-react'
+import { Atom, Home, LayoutDashboard } from 'lucide-react'
 import { Logo } from '@/components/brand'
 import { cn } from '@/lib/utils'
 
 const links = [
+  { href: '/', label: 'Home', icon: Home },
   { href: '/dna', label: 'DNA Aziendale', icon: Atom },
-  { href: '/dashboard', label: 'Bandi', icon: LayoutDashboard },
+  { href: '/bandi', label: 'Bandi', icon: LayoutDashboard },
 ]
 
 export function AppNav({ companyName }: { companyName: string }) {
@@ -17,7 +18,7 @@ export function AppNav({ companyName }: { companyName: string }) {
   return (
     <header className="sticky top-0 z-50 px-4 pt-4">
       <div className="glass-strong mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-2xl px-4 py-2.5">
-        <Link href="/dna" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <Logo size={30} />
           <span className="hidden text-sm font-semibold tracking-tight sm:block">
             Jesap

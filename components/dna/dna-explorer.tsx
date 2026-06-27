@@ -3,18 +3,8 @@
 import { useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import {
-  ArrowRight,
-  Check,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-  TriangleAlert,
-  X,
-} from 'lucide-react'
-import { useTransition } from 'react'
+import { ArrowRight, Check, Loader2, Sparkles, TriangleAlert, X } from 'lucide-react'
 import type { CompanyDna, DnaNode } from '@/lib/db/schema'
-import { regenerateDna } from '@/app/actions/company'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -48,7 +38,6 @@ export function DnaExplorer({
   companyName: string
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
 
   const selected = useMemo(
     () => dna.nodes.find((n) => n.id === selectedId) ?? null,
@@ -79,26 +68,12 @@ export function DnaExplorer({
           <p className="mt-2 text-pretty text-sm leading-relaxed text-foreground/90">
             {dna.headline}
           </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isPending}
-            onClick={() => startTransition(() => regenerateDna())}
-            className="mt-2 h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-          >
-            {isPending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="size-3.5" />
-            )}
-            Rigenera analisi
-          </Button>
         </div>
       </div>
 
       {/* Top-right: legend + CTA */}
       <div className="absolute right-4 top-4 z-10 flex flex-col items-end gap-3">
-        <Link href="/dashboard">
+        <Link href="/bandi">
           <Button size="sm" className="shadow-lg">
             Cerca bandi
             <ArrowRight className="size-4" />
@@ -124,33 +99,35 @@ export function DnaExplorer({
         </div>
       </div>
 
-      {/* Bottom-left: strengths & gaps */}
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-xs flex-col gap-2">
-        <div className="glass pointer-events-auto rounded-2xl p-3">
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ok">
-            <Check className="size-3.5" /> Punti di forza
-          </div>
-          <ul className="flex flex-col gap-1">
-            {dna.strengths.slice(0, 4).map((s, i) => (
-              <li key={i} className="text-xs leading-snug text-foreground/80">
-                {s}
-              </li>
-            ))}
-          </ul>
+      {/* Bottom-left: strengths & gaps (mostrati solo se presenti — niente analisi finta) */}
+      {(dna.strengths.length > 0 || dna.gaps.length > 0) && (
+        <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-xs flex-col gap-2">
+          {dna.strengths.length > 0 && (
+            <div className="glass pointer-events-auto rounded-2xl p-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ok">
+                <Check className="size-3.5" /> Punti di forza
+              </div>
+              <ul className="flex flex-col gap-1">
+                {dna.strengths.slice(0, 4).map((s, i) => (
+                  <li key={i} className="text-xs leading-snug text-foreground/80">{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {dna.gaps.length > 0 && (
+            <div className="glass pointer-events-auto rounded-2xl p-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-warn">
+                <TriangleAlert className="size-3.5" /> Aree da rafforzare
+              </div>
+              <ul className="flex flex-col gap-1">
+                {dna.gaps.slice(0, 3).map((s, i) => (
+                  <li key={i} className="text-xs leading-snug text-foreground/80">{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-        <div className="glass pointer-events-auto rounded-2xl p-3">
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-warn">
-            <TriangleAlert className="size-3.5" /> Aree da rafforzare
-          </div>
-          <ul className="flex flex-col gap-1">
-            {dna.gaps.slice(0, 3).map((s, i) => (
-              <li key={i} className="text-xs leading-snug text-foreground/80">
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      )}
 
       {/* Selected node detail panel */}
       {selected && (
