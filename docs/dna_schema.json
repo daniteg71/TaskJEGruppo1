@@ -1,0 +1,26 @@
+{
+  "p_iva": "01234567890",
+  "rag_soc": "Innovazione Digitale S.R.L.",
+  "ateco": ["62.01.0", "62.02.0"],
+  "fin": {
+    "ult_bilancio_anno": 2025,
+    "fatturato": 1500000,
+    "cap_sociale": 50000,
+    "utile_netto": 120000
+  },
+  "cert": ["ISO-9001", "ISO-27001"],
+  "comp": [
+    "Sviluppo Software Cloud",
+    "Intelligenza Artificiale",
+    "Machine Learning",
+    "Automazione CRM"
+  ],
+  "esperienze": [
+    {
+      "id": "EXP01",
+      "tag": "CRM",
+      "valore": 80000,
+      "desc": "Sviluppo di un sistema CRM e Corporate DNA proprietario per ottimizzazione flussi aziendali."
+    }
+  ]
+}
