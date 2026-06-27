@@ -38,3 +38,9 @@ Sito basato sul design v0 e adattato per girare su Vercel senza servizi esterni.
 npm install
 npm run dev   # http://localhost:3000
 ```
+
+## Contributori
+
+- Andrea Rinaldini ([@Zirin405](https://github.com/Zirin405))
+- Daniele Tegliucci ([@daniteg71](https://github.com/daniteg71))
+- Bryan Cristante ([@BryanCristante](https://github.com/BryanCristante))
