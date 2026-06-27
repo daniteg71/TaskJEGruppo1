@@ -89,8 +89,8 @@ token nelle chiamate API. (Vedi anche `docs/dna_schema.json`.)
 
 | Step | Stato | Dove nel codice |
 |---|---|---|
-| 1 — Connessione Drive + DNA | 🟡 Drive **reale** OK; estrazione `Corporate DNA` da fare | `lib/drive.ts` (connessione reale via service account). Sintesi DNA: hook `rewriteDnaFromDrive` in `lib/company-config.ts` → **Gustavo** |
-| 2 — Modifica DNA (incrementale) | 🔴 Da fare | bottone + parsing incrementale → **Gustavo** |
+| 1 — Connessione Drive + DNA | 🟢 **Fatto** (estrazione euristica; AI opzionale) | `lib/drive.ts` (`readDriveTexts`: Sheets/Docs/.docx). Sintesi in `lib/dna-from-drive.ts` (`getDnaFromDrive` → `CompanyDna` per la galassia + `CorporateDna` strutturato). I campi non trovati restano vuoti (niente dati inventati): quando arriva l'AI, `DriveDoc[]` è l'input del prompt |
+| 2 — Modifica DNA (incrementale) | 🟢 **Fatto** (rilevamento automatico) | `getDnaFromDrive`: impronta `id+modifiedTime` (nessun download); se invariata riusa la cache, altrimenti ri-sintetizza. Manca solo il **bottone** UI di refresh manuale |
 | 3 — Scraping bandi ufficiali | 🟢 **Fatto** (MIMIT + Invitalia reali, indipendente dal DNA) | `lib/scrape.ts`. EU/altri = nota sotto. Da fare: normalizzazione campi (ATECO/scadenze/budget) |
 | 4 — Filtro requisiti minimi | 🟡 **Attivo** (regola placeholder) | `filterCompatible()` in `lib/company-config.ts`: split compatibili/non-ammissibili (booleano, 0 token). I non ammissibili compaiono in sezione dedicata col motivo. Regola placeholder per settore → la sostituisce l'**algoritmo del team** (requisiti ↔ DNA) |
 | 5 — Scoring 1–10 | 🔴 Volutamente assente | in attesa del modulo del team. Cache pronta: `withScoreCache()` |
