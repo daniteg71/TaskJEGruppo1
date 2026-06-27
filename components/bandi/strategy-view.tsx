@@ -17,7 +17,7 @@ export function StrategyView({ s }: { s: ExecutionStrategy }) {
     <div className="mx-auto max-w-3xl px-4 py-8">
       {/* Barra azioni (nascosta in stampa) */}
       <div className="no-print mb-4 flex items-center justify-between">
-        <a href="/bandi" className="text-sm text-muted-foreground hover:text-foreground">
+        <a href="/" className="text-sm text-muted-foreground hover:text-foreground">
           ← Torna ai bandi
         </a>
         <Button onClick={() => window.print()} size="sm">

@@ -61,7 +61,7 @@ export function BandiList({
         setInfo(
           `${res.found} compatibili · ${res.scartati} non ammissibili (scartati gratis, 0 token) · ${res.nuovi} nuovi, ${res.giaNoti} già noti (riuso cache).`
         )
-        router.push('/bandi')
+        router.push('/')
         router.refresh()
       } catch {
         setInfo('Errore durante la ricerca. Riprova.')
@@ -75,7 +75,7 @@ export function BandiList({
   const activeRun = activeRunId ? history.find((h) => h.id === activeRunId) : history[0]
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mt-6">
       <div className="flex flex-col gap-6">
         {/* Header / search */}
         <div className="glass-strong flex flex-col items-start justify-between gap-4 rounded-3xl p-6 sm:flex-row sm:items-center">
@@ -107,7 +107,7 @@ export function BandiList({
                 return (
                   <Link
                     key={h.id}
-                    href={i === 0 ? '/bandi' : `/bandi?run=${h.id}`}
+                    href={i === 0 ? '/' : `/?run=${h.id}`}
                     className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs transition-colors ${
                       isActive
                         ? 'border-primary/50 bg-primary/20 text-foreground'
@@ -175,7 +175,7 @@ export function BandiList({
         {!isPending && grants.length > 0 && (
           <>
             <p className="text-xs text-muted-foreground">
-              {total} bandi · pagina {page} di {totalPages}
+              {total} bandi · in ordine di uscita (più recenti prima) · pagina {page} di {totalPages}
             </p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {grants.map((g) => (
@@ -215,7 +215,7 @@ export function BandiList({
             {totalPages > 1 && (
               <div className="mt-2 flex items-center justify-center gap-2">
                 <Link
-                  href={`/bandi?page=${page - 1}${runParam}`}
+                  href={`/?page=${page - 1}${runParam}`}
                   aria-disabled={page <= 1}
                   className={`rounded-lg border border-border px-3 py-1.5 text-sm ${
                     page <= 1 ? 'pointer-events-none opacity-40' : 'hover:bg-primary/10'
@@ -227,7 +227,7 @@ export function BandiList({
                   {page} / {totalPages}
                 </span>
                 <Link
-                  href={`/bandi?page=${page + 1}${runParam}`}
+                  href={`/?page=${page + 1}${runParam}`}
                   aria-disabled={page >= totalPages}
                   className={`rounded-lg border border-border px-3 py-1.5 text-sm ${
                     page >= totalPages ? 'pointer-events-none opacity-40' : 'hover:bg-primary/10'

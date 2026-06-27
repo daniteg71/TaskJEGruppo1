@@ -27,10 +27,21 @@ export async function searchGrants() {
   // 1) scraping reale (zero token: HTML/RSS, niente AI)
   const raw = await scrapeGrants()
 
+  // ordina "in ordine di uscita": per data di pubblicazione, più recenti prima (gli undated in coda)
+  raw.sort((a, b) => {
+    const ta = a.published ? Date.parse(a.published) : NaN
+    const tb = b.published ? Date.parse(b.published) : NaN
+    return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta)
+  })
+
   // 2) DNA dal Drive (per ora pass-through: lo riscriverà l'API di Gustavo)
   const { drive } = await getCompanyInfo()
   const dna = drive.connected ? placeholderDnaFromFiles(drive.files) : null
   await rewriteDnaFromDrive(dna)
+
+  // regionale vs nazionale (utile anche per i filtri futuri)
+  const REGIONALI = ['Lazio Innova', 'Sviluppo Toscana', 'Sardegna Impresa']
+  const regioneOf = (source: string) => (REGIONALI.includes(source) ? 'Regionale' : 'Nazionale')
 
   // mappa i risultati grezzi in "bandi" (nessuna valutazione: matchScore resta 0, non mostrato)
   let grants: Omit<Grant, 'id' | 'companyId' | 'createdAt'>[] = raw.map((r) => ({
@@ -41,7 +52,7 @@ export async function searchGrants() {
     deadline: 'Da verificare',
     amount: 'Da verificare',
     category: null,
-    region: 'Nazionale',
+    region: regioneOf(r.source),
     matchScore: 0,
     strategy: null,
   }))

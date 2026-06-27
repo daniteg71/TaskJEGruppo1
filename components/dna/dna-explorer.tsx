@@ -1,24 +1,12 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { ArrowRight, Check, Loader2, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { ArrowRight, Check, FileText, Sparkles, TriangleAlert, X } from 'lucide-react'
 import type { CompanyDna, DnaNode } from '@/lib/db/schema'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-
-const DnaGalaxy = dynamic(() => import('@/components/dna/galaxy'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin" />
-        <p className="text-sm">Inizializzazione della galassia…</p>
-      </div>
-    </div>
-  ),
-})
+import { DnaMap2D } from '@/components/dna/dna-map-2d'
 
 const GROUP_META: Record<DnaNode['group'], { label: string; color: string }> = {
   core: { label: 'Azienda', color: '#ffffff' },
@@ -51,9 +39,9 @@ export function DnaExplorer({
 
   return (
     <div className="relative h-[calc(100vh-5rem)] w-full">
-      {/* 3D canvas fills the area */}
-      <div className="absolute inset-0">
-        <DnaGalaxy dna={dna} selectedId={selectedId} onSelect={setSelectedId} />
+      {/* Mappa 2D statica */}
+      <div className="absolute inset-0 p-4">
+        <DnaMap2D dna={dna} selectedId={selectedId} onSelect={setSelectedId} />
       </div>
 
       {/* Top-left: headline */}
@@ -68,6 +56,19 @@ export function DnaExplorer({
           <p className="mt-2 text-pretty text-sm leading-relaxed text-foreground/90">
             {dna.headline}
           </p>
+          <div className="mt-3 border-t border-border/60 pt-2">
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Documenti dal Drive</p>
+            <ul className="flex flex-col gap-1">
+              {dna.nodes
+                .filter((n) => n.id !== 'core' && n.group !== 'core')
+                .map((n) => (
+                  <li key={n.id} className="flex items-center gap-1.5 text-xs text-foreground/85">
+                    <FileText className="size-3.5 shrink-0 text-accent" />
+                    <span className="truncate">{n.label}</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -183,8 +184,7 @@ export function DnaExplorer({
       {/* Hint */}
       {!selected && (
         <p className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 text-center text-xs text-muted-foreground">
-          Trascina per ruotare · scorri per zoomare · clicca un nodo per i
-          dettagli
+          Clicca un nodo per i dettagli
         </p>
       )}
     </div>

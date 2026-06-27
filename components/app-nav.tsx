@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Atom, Home, LayoutDashboard } from 'lucide-react'
+import { Atom, Home } from 'lucide-react'
 import { Logo } from '@/components/brand'
 import { cn } from '@/lib/utils'
 
 const links = [
-  { href: '/', label: 'Home', icon: Home },
+  { href: '/', label: 'Home · Bandi', icon: Home },
   { href: '/dna', label: 'DNA Aziendale', icon: Atom },
-  { href: '/bandi', label: 'Bandi', icon: LayoutDashboard },
 ]
 
 export function AppNav({ companyName }: { companyName: string }) {
