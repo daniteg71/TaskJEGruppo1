@@ -4,6 +4,7 @@ import { listDriveFiles, readDriveTexts, type DriveDoc } from '@/lib/drive'
 import type { CompanyDna, DriveFile } from '@/lib/db/schema'
 import type { CorporateDna } from '@/lib/corporate-dna'
 import { COMPANY } from '@/lib/company-config'
+import { geminiJson, isAiLive, type GeminiSchema } from '@/lib/ai-gemini'
 
 // ============================================================================
 // Step 1 — Sintesi del DNA dai file REALI del Drive.
@@ -23,6 +24,7 @@ function fingerprint(files: DriveFile[]): string {
 
 export type DriveDna = {
   fingerprint: string
+  usedAi: boolean // true se la sintesi è venuta da Gemini; false = euristica (fallback)
   files: DriveFile[]
   docs: DriveDoc[]
   companyDna: CompanyDna // modello "galassia" per la UI (/dna)
@@ -41,23 +43,183 @@ export async function getDnaFromDrive(folderId?: string): Promise<DriveDna | nul
   const files = await listDriveFiles(folderId)
   if (files.length === 0) return null
 
+  // Step 2: se l'impronta è uguale E lo stato dell'AI non è cambiato, riusa la cache.
   const fp = fingerprint(files)
-  if (g.__jesapDna && g.__jesapDna.fingerprint === fp) return g.__jesapDna // Step 2: invariato
+  if (g.__jesapDna && g.__jesapDna.fingerprint === fp && g.__jesapDna.usedAi === isAiLive()) {
+    return g.__jesapDna
+  }
 
   const docs = await readDriveTexts(files)
+
+  // Sintesi: prima prova l'AI (Gemini); se spenta o fallisce, usa l'euristica.
+  const ai = await synthesizeWithGemini(docs)
   const dna: DriveDna = {
     fingerprint: fp,
+    usedAi: Boolean(ai),
     files,
     docs,
-    companyDna: buildCompanyDna(files, docs),
-    corporateDna: extractCorporateDna(docs),
+    companyDna: ai ? buildCompanyDnaFromAi(ai) : buildCompanyDna(files, docs),
+    corporateDna: ai ? ai.corporate : extractCorporateDna(docs),
   }
   g.__jesapDna = dna
   return dna
 }
 
+// ===========================================================================
+// SINTESI CON AI (Gemini) — percorso preferito quando GEMINI_API_KEY è impostata.
+// L'AI legge il testo dei documenti e produce DNA strutturato + mappa concettuale.
+// Regola: NON inventare dati (campi vuoti se l'informazione non c'è).
+// ===========================================================================
+
+type NodeGroup = CompanyDna['nodes'][number]['group']
+const GROUPS: NodeGroup[] = ['core', 'competenze', 'mercato', 'finanza', 'innovazione', 'team', 'asset']
+
+type AiSynthesis = {
+  corporate: CorporateDna
+  headline: string
+  nodes: { label: string; group: NodeGroup; value: number; summary: string }[]
+  strengths: string[]
+  gaps: string[]
+}
+
+const AI_SCHEMA: GeminiSchema = {
+  type: 'object',
+  properties: {
+    corporate: {
+      type: 'object',
+      properties: {
+        p_iva: { type: 'string' },
+        rag_soc: { type: 'string' },
+        ateco: { type: 'array', items: { type: 'string' } },
+        fin: {
+          type: 'object',
+          properties: {
+            ult_bilancio_anno: { type: 'integer' },
+            fatturato: { type: 'number' },
+            cap_sociale: { type: 'number' },
+            utile_netto: { type: 'number' },
+          },
+        },
+        cert: { type: 'array', items: { type: 'string' } },
+        comp: { type: 'array', items: { type: 'string' } },
+        esperienze: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              tag: { type: 'string' },
+              valore: { type: 'number' },
+              desc: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    headline: { type: 'string' },
+    nodes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+          group: { type: 'string', enum: GROUPS },
+          value: { type: 'integer' },
+          summary: { type: 'string' },
+        },
+      },
+    },
+    strengths: { type: 'array', items: { type: 'string' } },
+    gaps: { type: 'array', items: { type: 'string' } },
+  },
+}
+
+function clamp(n: unknown, lo: number, hi: number, fallback: number): number {
+  const v = typeof n === 'number' && Number.isFinite(n) ? n : fallback
+  return Math.min(hi, Math.max(lo, v))
+}
+
+// Normalizza l'output dell'AI: riempie i default così il resto del codice non vede mai `undefined`.
+function normalizeAi(raw: Partial<AiSynthesis> | null): AiSynthesis | null {
+  if (!raw || !raw.corporate) return null
+  const c = raw.corporate
+  return {
+    corporate: {
+      p_iva: c.p_iva ?? '',
+      rag_soc: c.rag_soc || COMPANY.name,
+      ateco: c.ateco ?? [],
+      fin: {
+        ult_bilancio_anno: c.fin?.ult_bilancio_anno ?? 0,
+        fatturato: c.fin?.fatturato ?? 0,
+        cap_sociale: c.fin?.cap_sociale ?? 0,
+        utile_netto: c.fin?.utile_netto ?? 0,
+      },
+      cert: c.cert ?? [],
+      comp: c.comp ?? [],
+      esperienze: (c.esperienze ?? []).map((e, i) => ({
+        id: e.id || `EXP${String(i + 1).padStart(2, '0')}`,
+        tag: e.tag || 'progetto',
+        valore: typeof e.valore === 'number' ? e.valore : 0,
+        desc: e.desc || '',
+      })),
+    },
+    headline: raw.headline || `${COMPANY.name}: DNA aziendale`,
+    nodes: (raw.nodes ?? [])
+      .filter((n) => n && n.label)
+      .map((n) => ({
+        label: n.label,
+        group: GROUPS.includes(n.group) ? n.group : 'mercato',
+        value: clamp(n.value, 10, 100, 60),
+        summary: n.summary || '',
+      })),
+    strengths: raw.strengths ?? [],
+    gaps: raw.gaps ?? [],
+  }
+}
+
+async function synthesizeWithGemini(docs: DriveDoc[]): Promise<AiSynthesis | null> {
+  if (!isAiLive() || docs.length === 0) return null
+  const corpus = docs.map((d) => `### ${d.name}\n${d.text}`).join('\n\n').slice(0, 24000)
+  const prompt = `Sei un analista che estrae il "DNA aziendale" dai documenti reali di un'azienda
+(presi dal suo Google Drive). Ti fornisco il testo dei file. Produci un JSON con:
+- "corporate": dati strutturati (partita IVA, ragione sociale, codici ATECO, dati finanziari,
+  certificazioni, competenze chiave, esperienze/progetti con valore in euro);
+- "nodes": 5-10 nodi che riassumono i punti chiave dell'azienda (ogni nodo ha label, group, value 0-100, summary);
+- "headline": una frase che sintetizza l'azienda;
+- "strengths": punti di forza; "gaps": informazioni mancanti o aree deboli.
+
+REGOLE FONDAMENTALI:
+1. NON inventare dati. Se un'informazione non è nei documenti, lascia stringa vuota "", array vuoto [] o 0.
+2. Rispondi in ITALIANO.
+3. Basati SOLO sul testo fornito qui sotto.
+
+=== DOCUMENTI ===
+${corpus}`
+  const raw = await geminiJson<Partial<AiSynthesis>>(prompt, AI_SCHEMA)
+  return normalizeAi(raw)
+}
+
+// Costruisce la "galassia" (CompanyDna) dalla sintesi AI: nodo core + i nodi concettuali.
+function buildCompanyDnaFromAi(ai: AiSynthesis): CompanyDna {
+  const nodes: CompanyDna['nodes'] = [
+    { id: 'core', label: COMPANY.name, group: 'core', value: 100, summary: 'DNA aziendale (sintesi AI dai documenti del Drive).' },
+    ...ai.nodes.slice(0, 14).map((n, i) => ({
+      id: `n${i}`,
+      label: n.label,
+      group: n.group,
+      value: n.value,
+      summary: n.summary,
+    })),
+  ]
+  const links: CompanyDna['links'] = ai.nodes
+    .slice(0, 14)
+    .map((_, i) => ({ source: 'core', target: `n${i}`, strength: 0.6 }))
+  return { headline: ai.headline, nodes, links, strengths: ai.strengths, gaps: ai.gaps }
+}
+
 // ---------------------------------------------------------------------------
 // Modello "galassia" (CompanyDna): un nodo per file, col RIASSUNTO preso dal testo reale.
+// (Fallback EURISTICO usato quando l'AI è spenta o fallisce.)
 // ---------------------------------------------------------------------------
 
 function groupFor(name: string): CompanyDna['nodes'][number]['group'] {
