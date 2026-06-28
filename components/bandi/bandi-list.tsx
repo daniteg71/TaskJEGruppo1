@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowDownUp,
   ArrowRight,
   Ban,
+  Check,
+  ChevronDown,
   Clock,
   ExternalLink,
   Gauge,
@@ -29,6 +31,12 @@ const STEPS = [
   'Lettura bandi e incentivi…',
   'Raccolta risultati…',
 ]
+
+const SORT_OPTIONS = [
+  { value: 'recenti', label: 'Più recenti' },
+  { value: 'voto', label: 'Voto più alto' },
+  { value: 'az', label: 'A–Z' },
+] as const
 
 export function BandiList({
   grants,
@@ -61,6 +69,19 @@ export function BandiList({
   const [q, setQ] = useState(query)
   // Tiene l'input allineato all'URL (es. quando si pulisce il filtro o si cambia run).
   useEffect(() => setQ(query), [query])
+
+  // Dropdown ordinamento (custom, per coerenza col tema scuro dell'app).
+  const [sortOpen, setSortOpen] = useState(false)
+  const sortRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!sortOpen) return
+    function onDocClick(e: MouseEvent) {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [sortOpen])
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Più recenti'
 
   // Costruisce un URL conservando filtro (q), ordinamento (sort) e run attivo,
   // sovrascrivendo gli `extra`. Il default 'recenti' si omette per tenere l'URL pulito.
@@ -157,48 +178,6 @@ export function BandiList({
           </Button>
         </div>
 
-        {/* Barra di ricerca (testo su titolo + descrizione) + ordinamento — entrambi lato server */}
-        {unfilteredTotal > 0 && (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <form onSubmit={submitSearch} className="glass flex flex-1 items-center gap-2 rounded-2xl p-2">
-              <Search className="ml-2 size-4 shrink-0 text-muted-foreground" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Cerca tra i bandi (es. transizione, digitale, energia)…"
-                className="flex-1 bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-foreground"
-                >
-                  <X className="size-3.5" /> Azzera
-                </button>
-              )}
-              <Button type="submit" size="sm">
-                <Search className="size-4" /> Cerca
-              </Button>
-            </form>
-
-            {/* Ordinamento: i valori con dati reali ordinano subito; "voto" si accende con l'algoritmo */}
-            <label className="glass flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-muted-foreground">
-              <ArrowDownUp className="size-4 shrink-0 text-accent" />
-              <span className="hidden sm:inline">Ordina</span>
-              <select
-                value={sort}
-                onChange={(e) => changeSort(e.target.value)}
-                className="cursor-pointer bg-transparent text-sm font-medium text-foreground outline-none"
-              >
-                <option value="recenti">Più recenti</option>
-                <option value="voto">Voto più alto</option>
-                <option value="az">A–Z</option>
-              </select>
-            </label>
-          </div>
-        )}
-
         {/* Storico ricerche */}
         {history.length > 0 && (
           <div className="glass rounded-2xl p-4">
@@ -247,6 +226,80 @@ export function BandiList({
             <span className="text-xs text-muted-foreground">
               All’AI vanno solo i compatibili nuovi → meno token a ogni ricerca.
             </span>
+          </div>
+        )}
+
+        {/* Barra di ricerca (testo su titolo + descrizione) + ordinamento — entrambi lato server.
+            Posizionata qui, sotto Storico ed Efficienza token, appena sopra la lista. */}
+        {unfilteredTotal > 0 && (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <form onSubmit={submitSearch} className="glass flex flex-1 items-center gap-2 rounded-2xl p-2">
+              <Search className="ml-2 size-4 shrink-0 text-muted-foreground" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Cerca tra i bandi (es. transizione, digitale, energia)…"
+                className="flex-1 bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+                >
+                  <X className="size-3.5" /> Azzera
+                </button>
+              )}
+              <Button type="submit" size="sm">
+                <Search className="size-4" /> Cerca
+              </Button>
+            </form>
+
+            {/* Ordinamento: dropdown custom in tema con l'app (la tendina nativa stonerebbe).
+                I valori con dati reali ordinano subito; "voto" si accende con l'algoritmo. */}
+            <div ref={sortRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setSortOpen((v) => !v)}
+                aria-haspopup="listbox"
+                aria-expanded={sortOpen}
+                className="glass flex h-full w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:w-auto"
+              >
+                <ArrowDownUp className="size-4 shrink-0 text-accent" />
+                <span className="hidden sm:inline">Ordina:</span>
+                <span className="font-medium text-foreground">{sortLabel}</span>
+                <ChevronDown className={`size-4 shrink-0 transition-transform ${sortOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {sortOpen && (
+                <ul
+                  role="listbox"
+                  className="glass-strong absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-2xl p-1"
+                >
+                  {SORT_OPTIONS.map((o) => {
+                    const active = o.value === sort
+                    return (
+                      <li key={o.value} role="option" aria-selected={active}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortOpen(false)
+                            if (!active) changeSort(o.value)
+                          }}
+                          className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                            active
+                              ? 'bg-primary/20 font-medium text-foreground'
+                              : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
+                          }`}
+                        >
+                          {o.label}
+                          {active && <Check className="size-4 text-accent" />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         )}
 
