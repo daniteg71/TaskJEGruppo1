@@ -121,13 +121,26 @@ export async function getGrantsPage(
 
   // Ordinamento DOPO il filtro e PRIMA della paginazione (ordina tutti i bandi del run).
   // Mai mutare l'array dello store in-memory: copiare con [...].
+  // Nota: Array.sort è stabile → a parità di criterio si mantiene l'ordine di uscita (per data).
   const sortKey = sort ?? 'recenti'
+
+  // Rilevanza: quante parole della query compaiono nel TITOLO (più alto = più pertinente).
+  // Serve a portare in cima chi ha il termine nel titolo rispetto a chi ce l'ha solo in descrizione.
+  const titleScore = (g: Grant) => {
+    if (!words.length) return 0
+    const t = g.title.toLowerCase()
+    return words.filter((w) => t.includes(w)).length
+  }
+
   const all =
     sortKey === 'voto'
       ? [...filtered].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
       : sortKey === 'az'
         ? [...filtered].sort((a, b) => a.title.localeCompare(b.title, 'it'))
-        : filtered // 'recenti' = ordine di uscita (già desc per data)
+        : words.length
+          ? // 'recenti' + ricerca attiva: prima i match nel titolo, poi per data (stabile)
+            [...filtered].sort((a, b) => titleScore(b) - titleScore(a))
+          : filtered // 'recenti' senza ricerca = ordine di uscita (già desc per data)
 
   const total = all.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))

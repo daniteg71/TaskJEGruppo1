@@ -70,6 +70,25 @@ export function BandiList({
   // Tiene l'input allineato all'URL (es. quando si pulisce il filtro o si cambia run).
   useEffect(() => setQ(query), [query])
 
+  // Ricerca LIVE: mentre si digita, dopo un breve debounce si aggiorna l'URL (?q=)
+  // e il filtro lato server rigira su tutti i bandi. Niente Invio necessario.
+  useEffect(() => {
+    const trimmed = q.trim()
+    if (trimmed === query) return // già allineato all'URL: niente navigazione
+    const handle = setTimeout(() => {
+      const p = new URLSearchParams()
+      if (trimmed) p.set('q', trimmed)
+      if (sort && sort !== 'recenti') p.set('sort', sort)
+      if (activeRunId) p.set('run', String(activeRunId))
+      const s = p.toString()
+      // replace (non push) per non intasare la cronologia a ogni tasto.
+      // scroll:false → non riporta la pagina in cima a ogni aggiornamento live.
+      router.replace(s ? `/?${s}` : '/', { scroll: false })
+    }, 250)
+    return () => clearTimeout(handle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q])
+
   // Dropdown ordinamento (custom, per coerenza col tema scuro dell'app).
   const [sortOpen, setSortOpen] = useState(false)
   const sortRef = useRef<HTMLDivElement>(null)
@@ -103,7 +122,7 @@ export function BandiList({
     if (sort && sort !== 'recenti') p.set('sort', sort)
     if (activeRunId) p.set('run', String(activeRunId))
     const s = p.toString()
-    router.push(s ? `/?${s}` : '/')
+    router.replace(s ? `/?${s}` : '/', { scroll: false })
   }
 
   function clearSearch() {
@@ -112,7 +131,7 @@ export function BandiList({
     if (sort && sort !== 'recenti') p.set('sort', sort)
     if (activeRunId) p.set('run', String(activeRunId))
     const s = p.toString()
-    router.push(s ? `/?${s}` : '/')
+    router.replace(s ? `/?${s}` : '/', { scroll: false })
   }
 
   // Cambia ordinamento: azzera la pagina, conserva filtro e run.
@@ -122,7 +141,7 @@ export function BandiList({
     if (value && value !== 'recenti') p.set('sort', value)
     if (activeRunId) p.set('run', String(activeRunId))
     const s = p.toString()
-    router.push(s ? `/?${s}` : '/')
+    router.replace(s ? `/?${s}` : '/', { scroll: false })
   }
 
   // Link a un run dello storico, conservando filtro e ordinamento correnti.
@@ -241,18 +260,15 @@ export function BandiList({
                 placeholder="Cerca tra i bandi (es. transizione, digitale, energia)…"
                 className="flex-1 bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
               />
-              {query && (
+              {q && (
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+                  className="mr-1 flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-foreground"
                 >
                   <X className="size-3.5" /> Azzera
                 </button>
               )}
-              <Button type="submit" size="sm">
-                <Search className="size-4" /> Cerca
-              </Button>
             </form>
 
             {/* Ordinamento: dropdown custom in tema con l'app (la tendina nativa stonerebbe).

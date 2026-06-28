@@ -17,7 +17,7 @@ export function Logo({
       style={{ width: size, height: size }}
     >
       <Image
-        src="/jesap-logo.png"
+        src="/jesap-owl.png"
         alt="Logo Jesap"
         width={size}
         height={size}
