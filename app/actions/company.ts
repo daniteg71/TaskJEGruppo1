@@ -121,17 +121,62 @@ export async function searchGrants() {
 }
 
 // Bandi paginati (8 per pagina) della ricerca corrente o di una dello storico.
+// `q` filtra (testo libero su titolo + descrizione) PRIMA di paginare, così la
+// ricerca lavora su tutti i bandi del run e non solo sulla pagina visibile.
 export async function getGrantsPage(
   page = 1,
-  runId?: number
-): Promise<{ grants: Grant[]; page: number; totalPages: number; total: number }> {
+  runId?: number,
+  q?: string,
+  sort?: string
+): Promise<{
+  grants: Grant[]
+  page: number
+  totalPages: number
+  total: number
+  query: string
+  sort: string
+  unfilteredTotal: number
+}> {
   const run = runId ? getRun(runId) : getLatestRun()
-  const all = run?.grants ?? []
+  const allRaw = run?.grants ?? []
+  const query = (q ?? '').trim()
+  // Match AND su tutte le parole: "transizione energia" trova chi contiene entrambe.
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  const filtered = words.length
+    ? allRaw.filter((g) => {
+        const hay = `${g.title} ${g.description ?? ''}`.toLowerCase()
+        return words.every((w) => hay.includes(w))
+      })
+    : allRaw
+
+  // Ordinamento DOPO il filtro e PRIMA della paginazione (ordina tutti i bandi del run).
+  // Mai mutare l'array dello store in-memory: copiare con [...].
+  // Nota: Array.sort è stabile → a parità di criterio si mantiene l'ordine di uscita (per data).
+  const sortKey = sort ?? 'recenti'
+
+  // Rilevanza: quante parole della query compaiono nel TITOLO (più alto = più pertinente).
+  // Serve a portare in cima chi ha il termine nel titolo rispetto a chi ce l'ha solo in descrizione.
+  const titleScore = (g: Grant) => {
+    if (!words.length) return 0
+    const t = g.title.toLowerCase()
+    return words.filter((w) => t.includes(w)).length
+  }
+
+  const all =
+    sortKey === 'voto'
+      ? [...filtered].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+      : sortKey === 'az'
+        ? [...filtered].sort((a, b) => a.title.localeCompare(b.title, 'it'))
+        : words.length
+          ? // 'recenti' + ricerca attiva: prima i match nel titolo, poi per data (stabile)
+            [...filtered].sort((a, b) => titleScore(b) - titleScore(a))
+          : filtered // 'recenti' senza ricerca = ordine di uscita (già desc per data)
+
   const total = all.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const p = Math.min(Math.max(1, page), totalPages)
   const grants = all.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE)
-  return { grants, page: p, totalPages, total }
+  return { grants, page: p, totalPages, total, query, sort: sortKey, unfilteredTotal: allRaw.length }
 }
 
 // Output strategico (Step 6) per un bando. Costruito dai dati reali; i campi AI sono segnaposto
