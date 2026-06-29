@@ -1,12 +1,7 @@
 import { Check, FileText, FolderOpen, TriangleAlert } from 'lucide-react'
 import { AppShell } from '@/components/app-shell'
 import { BandiList } from '@/components/bandi/bandi-list'
-import {
-  getCompanyInfo,
-  getGrantsPage,
-  getScartati,
-  getSearchHistory,
-} from '@/app/actions/company'
+import { getCompanyInfo, getGrantsPage, getScartati, getSearchHistory } from '@/app/actions/company'
 
 export const dynamic = 'force-dynamic'
 // la ricerca fa scraping + (in prod) sintesi DNA e scoring AI: alza il limite oltre i 10s di default
@@ -22,7 +17,7 @@ export default async function HomePage({
   const runId = run ? Number.parseInt(run, 10) : undefined
   const validRun = Number.isFinite(runId) ? runId : undefined
 
-  const [{ company, drive }, paged, history, scartati] = await Promise.all([
+  const [{ company, companies, selectedId, drive }, paged, history, scartati] = await Promise.all([
     getCompanyInfo(),
     getGrantsPage(pageNum, validRun, q, sort),
     getSearchHistory(),
@@ -30,57 +25,38 @@ export default async function HomePage({
   ])
 
   return (
-    <AppShell companyName={company.name}>
-      <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-        Bandi e incentivi per <span className="text-accent">{company.name}</span>
+    <AppShell companyName={company.name} companies={companies} selectedId={selectedId}>
+      <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+        Bandi per <span className="text-accent">{company.name}</span>
       </h1>
-      <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-        La piattaforma legge i documenti aziendali dal Drive e cerca i bandi dai portali ufficiali.
-      </p>
 
-      {/* Stato connessione Drive (reale) */}
-      <div className="glass mt-6 rounded-xl p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-secondary p-2.5">
-              <FolderOpen className="size-5 text-accent" />
-            </div>
-            <div>
-              <h2 className="font-semibold">Cartella Google Drive</h2>
-              <a href={company.driveFolderUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
-                {company.driveFolderId}
-              </a>
-            </div>
-          </div>
-          {drive.connected ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-ok/15 px-3 py-1 text-sm font-medium text-ok">
-              <Check className="size-4" /> Connesso
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 rounded-full bg-warn/15 px-3 py-1 text-sm font-medium text-warn">
-              <TriangleAlert className="size-4" /> Non connesso
-            </span>
-          )}
-        </div>
-
+      {/* Stato Drive — compatto */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          <FolderOpen className="size-4 text-accent" /> Drive
+        </span>
         {drive.connected ? (
-          <div className="mt-4">
-            <p className="mb-2 text-xs text-muted-foreground">{drive.fileCount} documenti letti dal Drive:</p>
-            <div className="flex flex-wrap gap-2">
-              {drive.files.map((f) => (
-                <span key={f.id} className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-2.5 py-1 text-xs">
-                  <FileText className="size-3.5 text-accent" />
-                  {f.name}
-                </span>
-              ))}
-            </div>
-          </div>
+          <span className="flex items-center gap-1 text-ok">
+            <Check className="size-4" /> connesso · {drive.fileCount} file
+          </span>
         ) : (
-          <p className="mt-4 rounded-lg bg-warn/10 px-3 py-2 text-xs text-warn">{drive.error}</p>
+          <span className="flex items-center gap-1 text-warn">
+            <TriangleAlert className="size-4" /> {drive.error}
+          </span>
+        )}
+        {drive.connected && (
+          <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            {drive.files.slice(0, 4).map((f) => (
+              <span key={f.id} className="inline-flex items-center gap-1 rounded border border-border bg-secondary/40 px-1.5 py-0.5">
+                <FileText className="size-3 text-accent" />
+                {f.name}
+              </span>
+            ))}
+            {drive.files.length > 4 && <span>+{drive.files.length - 4}</span>}
+          </span>
         )}
       </div>
 
-      {/* Ricerca + risultati bandi (qui in home) */}
       <BandiList
         grants={paged.grants}
         page={paged.page}

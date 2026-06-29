@@ -1,7 +1,7 @@
 import 'server-only'
 import type { Grant, ScartatoGrant, SearchRun } from '@/lib/db/schema'
 
-// Persistenza in-memory mono-azienda (MVP, niente DB). Tiene SOLO lo storico ricerche.
+// Persistenza in-memory MULTI-AZIENDA (MVP, niente DB). Storico ricerche per azienda (companyId = folderId).
 // NB: si azzera a freddo sul serverless. Per persistenza reale serve un DB.
 
 const g = globalThis as unknown as {
@@ -10,6 +10,7 @@ const g = globalThis as unknown as {
 const store = g.__jesapRuns ?? (g.__jesapRuns = { runs: [], seq: { grant: 0, run: 0 } })
 
 export function addSearchRun(
+  companyId: string,
   found: number,
   scraped: number,
   nuovi: number,
@@ -19,7 +20,7 @@ export function addSearchRun(
 ): SearchRun {
   const run: SearchRun = {
     id: ++store.seq.run,
-    companyId: 1,
+    companyId,
     at: new Date(),
     found,
     scraped,
@@ -29,7 +30,7 @@ export function addSearchRun(
     grants: grantsData.map((gr) => ({
       ...gr,
       id: ++store.seq.grant,
-      companyId: 1,
+      companyId,
       createdAt: new Date(),
     })),
   }
@@ -37,22 +38,22 @@ export function addSearchRun(
   return run
 }
 
-export function getRuns(): SearchRun[] {
-  return [...store.runs].sort((a, b) => b.id - a.id)
+export function getRuns(companyId: string): SearchRun[] {
+  return store.runs.filter((r) => r.companyId === companyId).sort((a, b) => b.id - a.id)
 }
 
-export function getLatestRun(): SearchRun | null {
-  return getRuns()[0] ?? null
+export function getLatestRun(companyId: string): SearchRun | null {
+  return getRuns(companyId)[0] ?? null
 }
 
-export function getRun(runId: number): SearchRun | null {
-  return store.runs.find((r) => r.id === runId) ?? null
+export function getRun(companyId: string, runId: number): SearchRun | null {
+  return store.runs.find((r) => r.companyId === companyId && r.id === runId) ?? null
 }
 
-export function findGrant(grantId: number): Grant | null {
-  for (const run of getRuns()) {
-    const g = run.grants.find((x) => x.id === grantId)
-    if (g) return g
+export function findGrant(companyId: string, grantId: number): Grant | null {
+  for (const run of getRuns(companyId)) {
+    const grant = run.grants.find((x) => x.id === grantId)
+    if (grant) return grant
   }
   return null
 }

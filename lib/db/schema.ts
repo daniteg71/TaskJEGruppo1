@@ -14,7 +14,7 @@ export type Company = {
 
 export type Grant = {
   id: number
-  companyId: number
+  companyId: string
   title: string
   sourceUrl: string | null
   sourceName: string | null
@@ -24,6 +24,8 @@ export type Grant = {
   category: string | null
   region: string | null
   matchScore: number | null
+  /** giustificazione breve del voto (dall'algoritmo di valutazione) */
+  scoreReason: string | null
   strategy: GrantStrategy | null
   createdAt: Date
 }
@@ -84,7 +86,7 @@ export type ScartatoGrant = {
 // Una ricerca salvata nello storico.
 export type SearchRun = {
   id: number
-  companyId: number
+  companyId: string
   at: Date
   found: number
   scraped: number

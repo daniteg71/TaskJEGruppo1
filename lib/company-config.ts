@@ -1,14 +1,22 @@
 import 'server-only'
+import { cookies } from 'next/headers'
 import type { CompanyDna, DriveFile, Grant } from '@/lib/db/schema'
 
-// App MONO-AZIENDA (niente login): pre-configurata per l'azienda del Drive collegato.
-// Per cambiare azienda/cartella basta modificare qui (o le env su Vercel).
-export const COMPANY = {
-  name: 'RUGEST',
-  driveFolderId: process.env.DRIVE_BANDI_FOLDER_ID ?? '1HFXiNjjnrnsNeaMRBDH-vGao-XepH_GE',
-  get driveFolderUrl() {
-    return `https://drive.google.com/drive/folders/${this.driveFolderId}`
-  },
+// Nome dell'applicazione (multi-azienda di test).
+export const APP_NAME = 'ban4ban'
+
+// Cartella radice del Drive: contiene una SOTTOCARTELLA per azienda (vedi listCompanyFolders).
+export const ROOT_FOLDER_ID = process.env.DRIVE_BANDI_FOLDER_ID ?? '1HFXiNjjnrnsNeaMRBDH-vGao-XepH_GE'
+
+const COMPANY_COOKIE = 'ban4ban_company' // memorizza il folderId dell'azienda selezionata
+
+export async function getSelectedFolderId(): Promise<string | null> {
+  const c = (await cookies()).get(COMPANY_COOKIE)?.value
+  return c || null
+}
+
+export function folderUrl(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${folderId}`
 }
 
 // ----------------------------------------------------------------------------
@@ -50,7 +58,7 @@ export function filterCompatible<T extends Grant>(
 
 // DNA "segnaposto" minimo finché non arriva quello reale dall'automazione Drive.
 // Costruito dai file reali della cartella (nessuna analisi finta).
-export function placeholderDnaFromFiles(files: DriveFile[]): CompanyDna {
+export function placeholderDnaFromFiles(files: DriveFile[], companyName = 'Azienda'): CompanyDna {
   const groupFor = (name: string): CompanyDna['nodes'][number]['group'] => {
     const n = name.toLowerCase()
     if (n.includes('cv') || n.includes('curriculum')) return 'team'
@@ -60,7 +68,7 @@ export function placeholderDnaFromFiles(files: DriveFile[]): CompanyDna {
     return 'mercato'
   }
   const nodes: CompanyDna['nodes'] = [
-    { id: 'core', label: COMPANY.name, group: 'core', value: 100, summary: 'Azienda (DNA in costruzione dall’automazione Drive).' },
+    { id: 'core', label: companyName, group: 'core', value: 100, summary: 'Azienda (DNA in costruzione dall’automazione Drive).' },
     ...files.slice(0, 20).map((f, i) => ({
       id: `f${i}`,
       label: f.name.replace(/\.[a-z0-9]+$/i, ''),
@@ -71,7 +79,7 @@ export function placeholderDnaFromFiles(files: DriveFile[]): CompanyDna {
   ]
   const links: CompanyDna['links'] = files.slice(0, 20).map((_, i) => ({ source: 'core', target: `f${i}`, strength: 0.6 }))
   return {
-    headline: `${COMPANY.name}: DNA generato dai documenti del Drive (in attesa dell’automazione completa).`,
+    headline: `${companyName}: DNA dai documenti del Drive.`,
     nodes,
     links,
     strengths: [],

@@ -77,6 +77,23 @@ export async function listDriveFiles(folderId?: string): Promise<DriveFile[]> {
   return data.files ?? []
 }
 
+export type CompanyFolder = { id: string; name: string }
+
+// Sottocartelle della cartella radice: una per AZIENDA (multi-tenant di test).
+// Il nome azienda = nome cartella senza il prefisso "documenti ".
+export async function listCompanyFolders(rootId?: string): Promise<CompanyFolder[]> {
+  const id = rootId ?? process.env.DRIVE_BANDI_FOLDER_ID
+  if (!id) return []
+  const token = await getAccessToken()
+  if (!token) return []
+  const q = `'${id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&orderBy=name`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+  if (!res.ok) return []
+  const data = (await res.json()) as { files?: { id: string; name: string }[] }
+  return (data.files ?? []).map((f) => ({ id: f.id, name: f.name.replace(/^documenti\s+/i, '').trim() }))
+}
+
 // ----------------------------------------------------------------------------
 // Estrazione del TESTO dai file (Step 1 — sintesi DNA). Riusa lo stesso access
 // token del service account: ZERO nuove dipendenze di auth. Solo `mammoth` per i .docx.

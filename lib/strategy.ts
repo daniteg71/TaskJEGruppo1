@@ -27,15 +27,11 @@ export type ExecutionStrategy = {
     comp?: string[]
   }
   bando: { titolo: string; fonte: string; url?: string; scadenza?: string; importo?: string }
-  // null finché non arriva il modulo di valutazione del team
   score: number | null // 1-10
-  probabilita: number | null // 0-100
-  matching: StrategyMatchRow[] // tabella match / non-match
-  checklist: StrategyChecklistItem[] // cose da fare
+  giustificazione: string | null // perché questo voto (sunto breve dall'algoritmo)
+  matching: StrategyMatchRow[] // tabella match / non-match (vuota finché non c'è l'analisi puntuale)
+  checklist: StrategyChecklistItem[]
   milestone: StrategyMilestone[]
-  documentiMancanti: string[]
-  puntiForza: string[]
-  note: string
 }
 
 // HOOK: costruisce lo "scheletro" della strategia con i DATI REALI disponibili
@@ -56,16 +52,11 @@ export function buildStrategy(dna: CompanyDna | null, grant: Grant, nowIso: stri
       scadenza: grant.deadline ?? undefined,
       importo: grant.amount ?? undefined,
     },
-    // voto 1-10 già calcolato in fase di ricerca (algoritmo di valutazione)
+    // voto 1-10 + giustificazione, calcolati in fase di ricerca (algoritmo di valutazione)
     score: grant.matchScore && grant.matchScore > 0 ? grant.matchScore : null,
-    probabilita: null,
-    // struttura della tabella pronta; gli esiti reali li mette l'algoritmo del team
-    matching: [
-      { requisito: 'Requisiti di ammissibilità', richiesto: 'da bando', posseduto: '—', esito: 'da-valutare' },
-      { requisito: 'Certificazioni richieste', richiesto: 'da bando', posseduto: '—', esito: 'da-valutare' },
-      { requisito: 'Capacità economico-finanziaria', richiesto: 'da bando', posseduto: '—', esito: 'da-valutare' },
-      { requisito: 'Coerenza con i progetti/portfolio', richiesto: 'da bando', posseduto: '—', esito: 'da-valutare' },
-    ],
+    giustificazione: grant.scoreReason ?? null,
+    matching: [], // la tabella match puntuale arriverà con l'analisi dettagliata
+
     // checklist operativa standard (fattuale, non analisi): la valorizza poi l'algoritmo
     checklist: [
       { voce: 'Verificare i requisiti di ammissibilità sulla pagina ufficiale', fatto: false, responsabile: 'PM' },
@@ -79,8 +70,5 @@ export function buildStrategy(dna: CompanyDna | null, grant: Grant, nowIso: stri
       { quando: 'Settimana 2-3', cosa: 'Stesura progetto e piano di spesa' },
       { quando: 'Settimana 4', cosa: 'Allegati, revisione e invio' },
     ],
-    documentiMancanti: [], // li popola il modulo di valutazione
-    puntiForza: [], // li popola il modulo di valutazione
-    note: 'Punteggio, probabilità e matching puntuale sono in arrivo dal modulo di valutazione del team. Anagrafica strutturata (P.IVA, ATECO, dati finanziari) dall’estrazione DNA dal Drive.',
   }
 }

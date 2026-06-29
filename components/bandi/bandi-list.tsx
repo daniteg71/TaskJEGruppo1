@@ -180,18 +180,11 @@ export function BandiList({
     <div className="mt-6">
       <div className="flex flex-col gap-6">
         {/* Header / search */}
-        <div className="glass-strong flex flex-col items-start justify-between gap-4 rounded-3xl p-6 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-              <Radar className="size-6 text-accent" />
-              Bandi per la tua azienda
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Scraping in tempo reale dai portali ufficiali (MIMIT + Invitalia). La compatibilità
-              col DNA verrà applicata quando arriverà il modulo dedicato.
-            </p>
-          </div>
-          <Button size="lg" onClick={runSearch} disabled={isPending}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Radar className="size-4 text-accent" /> Portali ufficiali (MIMIT, Invitalia, regioni)
+          </span>
+          <Button onClick={runSearch} disabled={isPending}>
             {isPending ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
             {total > 0 ? 'Nuova ricerca' : 'Cerca bandi'}
           </Button>
@@ -227,24 +220,13 @@ export function BandiList({
           </div>
         )}
 
-        {/* Anti-spreco token: nuovi vs già noti */}
+        {/* Efficienza token — riga compatta */}
         {!isPending && activeRun && total > 0 && (
-          <div className="glass flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl p-4 text-sm">
-            <span className="flex items-center gap-2 font-semibold">
-              <Gauge className="size-4 text-accent" /> Efficienza token
-            </span>
-            <span className="text-muted-foreground">
-              <span className="font-medium text-foreground">{activeRun.nuovi}</span> nuovi (da analizzare)
-            </span>
-            <span className="text-muted-foreground">
-              <span className="font-medium text-ok">{activeRun.giaNoti}</span> già noti (cache, 0 token)
-            </span>
-            <span className="text-muted-foreground">
-              <span className="font-medium text-danger">{activeRun.scartati}</span> non ammissibili (scartati gratis)
-            </span>
-            <span className="text-xs text-muted-foreground">
-              All’AI vanno solo i compatibili nuovi → meno token a ogni ricerca.
-            </span>
+          <div className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+            <Gauge className="size-3.5 text-accent" />
+            <span><span className="text-ok">{activeRun.giaNoti}</span> già valutati (0 token)</span>
+            <span><span className="text-foreground">{activeRun.nuovi}</span> nuovi</span>
+            <span><span className="text-danger">{activeRun.scartati}</span> non ammissibili</span>
           </div>
         )}
 

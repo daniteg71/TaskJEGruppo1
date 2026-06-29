@@ -10,11 +10,11 @@ export default async function StrategyPage({ params }: { params: Promise<{ id: s
   const grantId = Number.parseInt(id, 10)
   if (!Number.isFinite(grantId)) notFound()
 
-  const [{ company }, strategy] = await Promise.all([getCompanyInfo(), getStrategy(grantId)])
+  const [{ company, companies, selectedId }, strategy] = await Promise.all([getCompanyInfo(), getStrategy(grantId)])
   if (!strategy) notFound()
 
   return (
-    <AppShell companyName={company.name} noPadding>
+    <AppShell companyName={company.name} companies={companies} selectedId={selectedId} noPadding>
       <StrategyView s={strategy} />
     </AppShell>
   )

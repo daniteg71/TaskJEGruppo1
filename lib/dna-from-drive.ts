@@ -3,8 +3,11 @@ import crypto from 'node:crypto'
 import { listDriveFiles, readDriveTexts, type DriveDoc } from '@/lib/drive'
 import type { CompanyDna, DriveFile } from '@/lib/db/schema'
 import type { CorporateDna } from '@/lib/corporate-dna'
-import { COMPANY } from '@/lib/company-config'
 import { geminiJson, isAiLive, type GeminiSchema } from '@/lib/ai-gemini'
+
+// Nome azienda corrente (impostato a ogni getDnaFromDrive). In una request le chiamate
+// concorrenti riguardano la STESSA azienda selezionata → sicuro per i label del DNA.
+let dnaCompanyName = 'Azienda'
 
 // ============================================================================
 // Step 1 — Sintesi del DNA dai file REALI del Drive.
@@ -31,22 +34,25 @@ export type DriveDna = {
   corporateDna: CorporateDna // contratto strutturato per la pipeline (Step 4/5)
 }
 
-// Cache in-memory per istanza (sopravvive all'HMR via globalThis). A freddo si azzera:
-// per persistenza cross-sessione -> KV/DB. Sufficiente per l'MVP.
-const g = globalThis as unknown as { __jesapDna?: DriveDna | null }
+// Cache in-memory PER CARTELLA (multi-azienda): chiave = folderId. globalThis sopravvive all'HMR.
+const g = globalThis as unknown as { __jesapDna?: Map<string, DriveDna> }
+const dnaCache = g.__jesapDna ?? (g.__jesapDna = new Map())
 
 /**
  * Ritorna il DNA sintetizzato dai file del Drive, ricostruendolo SOLO se il contenuto
  * è cambiato (confronto impronta). `null` se il Drive non è leggibile/è vuoto.
  */
-export async function getDnaFromDrive(folderId?: string): Promise<DriveDna | null> {
+export async function getDnaFromDrive(folderId?: string, companyName?: string): Promise<DriveDna | null> {
+  dnaCompanyName = companyName || 'Azienda'
+  const key = folderId ?? process.env.DRIVE_BANDI_FOLDER_ID ?? 'default'
   const files = await listDriveFiles(folderId)
   if (files.length === 0) return null
 
   // Step 2: se l'impronta è uguale E lo stato dell'AI non è cambiato, riusa la cache.
   const fp = fingerprint(files)
-  if (g.__jesapDna && g.__jesapDna.fingerprint === fp && g.__jesapDna.usedAi === isAiLive()) {
-    return g.__jesapDna
+  const cached = dnaCache.get(key)
+  if (cached && cached.fingerprint === fp && cached.usedAi === isAiLive()) {
+    return cached
   }
 
   const docs = await readDriveTexts(files)
@@ -61,7 +67,7 @@ export async function getDnaFromDrive(folderId?: string): Promise<DriveDna | nul
     companyDna: ai ? buildCompanyDnaFromAi(ai) : buildCompanyDna(files, docs),
     corporateDna: ai ? ai.corporate : extractCorporateDna(docs),
   }
-  g.__jesapDna = dna
+  dnaCache.set(key, dna)
   return dna
 }
 
@@ -157,7 +163,7 @@ function normalizeAi(raw: Partial<AiSynthesis> | null): AiSynthesis | null {
   return {
     corporate: {
       p_iva: cleanStr(c.p_iva),
-      rag_soc: cleanStr(c.rag_soc) || COMPANY.name,
+      rag_soc: cleanStr(c.rag_soc) || dnaCompanyName,
       ateco: cleanArr(c.ateco),
       fin: {
         ult_bilancio_anno: c.fin?.ult_bilancio_anno ?? 0,
@@ -176,7 +182,7 @@ function normalizeAi(raw: Partial<AiSynthesis> | null): AiSynthesis | null {
           desc: cleanStr(e.desc),
         })),
     },
-    headline: cleanStr(raw.headline) || `${COMPANY.name}: DNA aziendale`,
+    headline: cleanStr(raw.headline) || `${dnaCompanyName}: DNA aziendale`,
     nodes: (raw.nodes ?? [])
       .filter((n) => n && cleanStr(n.label))
       .map((n) => ({
@@ -215,7 +221,7 @@ ${corpus}`
 // Costruisce la "galassia" (CompanyDna) dalla sintesi AI: nodo core + i nodi concettuali.
 function buildCompanyDnaFromAi(ai: AiSynthesis): CompanyDna {
   const nodes: CompanyDna['nodes'] = [
-    { id: 'core', label: COMPANY.name, group: 'core', value: 100, summary: 'DNA aziendale (sintesi AI dai documenti del Drive).' },
+    { id: 'core', label: dnaCompanyName, group: 'core', value: 100, summary: 'DNA aziendale (sintesi AI dai documenti del Drive).' },
     ...ai.nodes.slice(0, 14).map((n, i) => ({
       id: `n${i}`,
       label: n.label,
@@ -257,7 +263,7 @@ export function buildCompanyDna(files: DriveFile[], docs: DriveDoc[]): CompanyDn
   const nodes: CompanyDna['nodes'] = [
     {
       id: 'core',
-      label: COMPANY.name,
+      label: dnaCompanyName,
       group: 'core',
       value: 100,
       summary: 'DNA aziendale sintetizzato dai documenti reali del Drive.',
@@ -289,7 +295,7 @@ export function buildCompanyDna(files: DriveFile[], docs: DriveDoc[]): CompanyDn
   if (!cdna.ateco.length) gaps.push('Codici ATECO non trovati')
 
   return {
-    headline: `${COMPANY.name}: DNA generato da ${docs.length} documento/i del Drive.`,
+    headline: `${dnaCompanyName}: DNA generato da ${docs.length} documento/i del Drive.`,
     nodes,
     links,
     strengths,
@@ -368,7 +374,7 @@ export function extractCorporateDna(docs: DriveDoc[]): CorporateDna {
 
   return {
     p_iva,
-    rag_soc: COMPANY.name,
+    rag_soc: dnaCompanyName,
     ateco,
     fin: { ult_bilancio_anno, fatturato, cap_sociale, utile_netto },
     cert,

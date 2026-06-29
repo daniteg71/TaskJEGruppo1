@@ -8,11 +8,11 @@ import { getCompanyInfo } from '@/app/actions/company'
 export const dynamic = 'force-dynamic'
 
 export default async function DnaPage() {
-  const { company, drive, dna } = await getCompanyInfo()
+  const { company, companies, selectedId, drive, dna } = await getCompanyInfo()
 
   if (!drive.connected || !dna) {
     return (
-      <AppShell companyName={company.name}>
+      <AppShell companyName={company.name} companies={companies} selectedId={selectedId}>
         <div className="mx-auto flex max-w-xl flex-col items-center gap-4 py-24 text-center">
           <div className="rounded-xl bg-warn/10 p-4">
             <TriangleAlert className="size-8 text-warn" />
@@ -28,7 +28,7 @@ export default async function DnaPage() {
   }
 
   return (
-    <AppShell companyName={company.name} noPadding>
+    <AppShell companyName={company.name} companies={companies} selectedId={selectedId} noPadding>
       <DnaExplorer dna={dna} companyName={company.name} />
     </AppShell>
   )
