@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import crypto from 'node:crypto'
 import mammoth from 'mammoth'
 import type { DriveFile } from '@/lib/db/schema'
@@ -27,7 +28,10 @@ const b64url = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64ur
 
 let tokenCache: { token: string; exp: number } | null = null
 
-async function getAccessToken(): Promise<string | null> {
+// Memoizzato per-richiesta (React cache): le chiamate parallele in un singolo render
+// condividono lo stesso access token invece di rifirmare N JWT in concorrenza.
+// Il `tokenCache` modulare resta sotto per il riuso CROSS-richiesta nel lambda caldo.
+const getAccessToken = cache(async (): Promise<string | null> => {
   const sa = getServiceAccount()
   if (!sa) return null
 
@@ -60,10 +64,12 @@ async function getAccessToken(): Promise<string | null> {
   if (!data.access_token) return null
   tokenCache = { token: data.access_token, exp: now + (data.expires_in ?? 3600) }
   return data.access_token
-}
+})
 
 // Elenco dei file nella cartella DNA del Drive aziendale.
-export async function listDriveFiles(folderId?: string): Promise<DriveFile[]> {
+// Memoizzato per-richiesta: checkDriveConnection + getDnaFromDrive sulla STESSA cartella
+// fanno una sola lista invece di due.
+export const listDriveFiles = cache(async (folderId?: string): Promise<DriveFile[]> => {
   const id = folderId ?? process.env.DRIVE_BANDI_FOLDER_ID
   if (!id) return []
   const token = await getAccessToken()
@@ -75,13 +81,14 @@ export async function listDriveFiles(folderId?: string): Promise<DriveFile[]> {
   if (!res.ok) return []
   const data = (await res.json()) as { files?: DriveFile[] }
   return data.files ?? []
-}
+})
 
 export type CompanyFolder = { id: string; name: string }
 
 // Sottocartelle della cartella radice: una per AZIENDA (multi-tenant di test).
 // Il nome azienda = nome cartella senza il prefisso "documenti ".
-export async function listCompanyFolders(rootId?: string): Promise<CompanyFolder[]> {
+// Memoizzato per-richiesta: i 4 server-action della home risolvono l'azienda una volta sola.
+export const listCompanyFolders = cache(async (rootId?: string): Promise<CompanyFolder[]> => {
   const id = rootId ?? process.env.DRIVE_BANDI_FOLDER_ID
   if (!id) return []
   const token = await getAccessToken()
@@ -92,7 +99,7 @@ export async function listCompanyFolders(rootId?: string): Promise<CompanyFolder
   if (!res.ok) return []
   const data = (await res.json()) as { files?: { id: string; name: string }[] }
   return (data.files ?? []).map((f) => ({ id: f.id, name: f.name.replace(/^documenti\s+/i, '').trim() }))
-}
+})
 
 // ----------------------------------------------------------------------------
 // Estrazione del TESTO dai file (Step 1 — sintesi DNA). Riusa lo stesso access

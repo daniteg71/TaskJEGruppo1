@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import type { Grant } from '@/lib/db/schema'
@@ -16,12 +17,14 @@ const PAGE_SIZE = 8
 const COMPANY_COOKIE = 'ban4ban_company'
 
 // Azienda selezionata (o la prima disponibile). null se il Drive non ha sottocartelle.
-async function resolveSelected(): Promise<{ id: string; name: string } | null> {
+// Memoizzato per-richiesta: getCompanyInfo + getGrantsPage + getSearchHistory + getScartati
+// (tutti chiamati in Promise.all dalla home) la risolvono una volta sola.
+const resolveSelected = cache(async (): Promise<{ id: string; name: string } | null> => {
   const companies = await listCompanyFolders()
   if (companies.length === 0) return null
   const sel = await getSelectedFolderId()
   return companies.find((c) => c.id === sel) ?? companies[0]
-}
+})
 
 // Cambia l'azienda attiva (selettore).
 export async function setCompany(folderId: string) {

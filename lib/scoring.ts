@@ -30,10 +30,19 @@ function dnaVer(dna: CorporateDna | null): string {
 
 function clamp(n: unknown, lo: number, hi: number, fallback: number): number {
   const x = typeof n === 'number' && Number.isFinite(n) ? n : fallback
-  return Math.max(lo, Math.min(hi, Math.round(x * 10) / 10))
+  return Math.max(lo, Math.min(hi, Math.round(x))) // voto INTERO 1-10
 }
 
-// Fallback deterministico: affinità lessicale tra profilo (comp/cert/ateco) e testo del bando.
+// Incentivi "orizzontali": adatti a quasi qualunque impresa → meritano un buon punteggio
+// anche senza un aggancio diretto sul DNA (è il caso più comune dei bandi nazionali).
+const HORIZONTAL_RX =
+  /(digital|innovaz|ricerca|r&s|formazione|competenz|internazional|export|investiment|credito d|transizione|sostenib|energ|efficienz|assunzion|occupazione|femminil|giovani|startup|\bpmi\b|liquidità|capitalizz|industria 4)/i
+// Settori verticali specifici: se l'azienda non è di quel settore e non c'è alcun aggancio, il bando è meno pertinente.
+const VERTICAL_RX = /(agricol|pesca|itticolt|turism|moda|tessil|nautic|ferroviar|portual|sanitar|forestal|zootecn)/i
+
+// Fallback DETERMINISTICO (nessuna AI): stima la pertinenza dal tema del bando + affinità col profilo.
+// Baseline sensata (un incentivo nazionale generico è di per sé "discretamente interessante" per una PMI),
+// con bonus per i bandi trasversali e per le affinità dirette col DNA. Distribuzione 3-9 (il 10 lo dà solo l'AI).
 function localAffinity(dna: CorporateDna | null, it: ScoreInput): BandoScore {
   const hay = `${it.title} ${it.text}`.toLowerCase()
   const terms = new Set<string>()
@@ -44,8 +53,19 @@ function localAffinity(dna: CorporateDna | null, it: ScoreInput): BandoScore {
   }
   let hits = 0
   for (const t of terms) if (hay.includes(t)) hits++
-  const score = clamp(4 + hits * 0.7, 1, 9, 4) // deterministico: 10 non lo dà mai
-  return { score, reason: hits ? `${hits} affinità col profilo aziendale` : 'Affinità non determinabile dal testo disponibile' }
+
+  const horizontal = HORIZONTAL_RX.test(hay)
+  let score = 6 // baseline: pertinenza generale per un'impresa
+  if (horizontal) score += 1.5 // bando trasversale → adatto a gran parte delle imprese
+  score += Math.min(hits, 4) * 0.6 // affinità diretta col profilo aziendale
+  if (VERTICAL_RX.test(hay) && hits === 0) score -= 2 // settore verticale, nessun aggancio col profilo
+
+  const reason = hits
+    ? `${hits} affinità col profilo aziendale${horizontal ? ' + incentivo trasversale' : ''}`
+    : horizontal
+      ? 'Incentivo trasversale, adatto a gran parte delle imprese'
+      : 'Pertinenza generale stimata dal tema del bando'
+  return { score: clamp(score, 3, 9, 6), reason }
 }
 
 const BATCH_SCHEMA: GeminiSchema = {
@@ -76,16 +96,22 @@ async function geminiBatch(dna: CorporateDna, items: ScoreInput[]): Promise<Reco
     fin: dna.fin,
     esperienze: (dna.esperienze ?? []).map((e) => e.tag),
   }
-  const prompt = `Sei un analista di bandi e incentivi per imprese. Valuta l'AFFINITÀ (voto INTERO 1-10) tra l'AZIENDA e ciascun BANDO della lista.
-Criteri: coerenza di settore, tecnica (servizi/competenze vs requisiti), certificazioni, esperienze passate, ambito geografico, sostenibilità economico-strategica.
-Regole: non essere generoso; il 10 è raro; se mancano requisiti o attinenza, abbassa il voto; basati solo sui dati forniti.
+  const prompt = `Sei un analista di bandi e incentivi per imprese. Assegna a OGNI bando un voto INTERO da 1 a 10 che misura quanto è PERTINENTE e INTERESSANTE per l'AZIENDA.
 
 AZIENDA: ${JSON.stringify(profilo)}
 
-BANDI (valuta ognuno, usa il "ref" per identificarlo):
-${JSON.stringify(items.map((b) => ({ ref: b.ref, titolo: b.title, fonte: b.source, testo: b.text.slice(0, 240) })))}
+Come assegnare il voto (usa TUTTA la scala, sii deciso, NON ammassare i voti sul basso):
+- 9-10: forte allineamento di tema/settore col profilo, requisiti plausibilmente alla portata.
+- 6-8: incentivo pertinente o TRASVERSALE (digitalizzazione, innovazione, R&S, formazione, investimenti, internazionalizzazione, credito d'imposta, transizione, assunzioni) utile a gran parte delle imprese come questa.
+- 4-5: pertinenza solo parziale o molto generica.
+- 1-3: settore chiaramente diverso o tipologia non ammissibile per questa azienda.
 
-Rispondi SOLO JSON: {"items":[{"ref","score","reason"}]} con un reason breve (max 90 caratteri).`
+REGOLE: i testi dei bandi sono brevi → NON penalizzare per le informazioni mancanti: valuta l'affinità di TEMA e SETTORE, non la completezza del testo. Nel dubbio tra due voti scegli il PIÙ ALTO. Basati solo sui dati forniti.
+
+BANDI (valuta ognuno, usa il "ref" per identificarlo):
+${JSON.stringify(items.map((b) => ({ ref: b.ref, titolo: b.title, fonte: b.source, testo: `${b.title} — ${b.text}`.slice(0, 600) })))}
+
+Rispondi SOLO JSON: {"items":[{"ref","score","reason"}]} con un reason breve (max 90 caratteri) che spiega il voto.`
   const out = await geminiJson<{ items: { ref: string; score: number; reason: string }[] }>(prompt, BATCH_SCHEMA)
   if (!out?.items) return null
   const map: Record<string, BandoScore> = {}
