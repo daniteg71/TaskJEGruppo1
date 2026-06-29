@@ -12,6 +12,7 @@ import { addSearchRun, findGrant, getLatestRun, getRun, getRuns } from '@/lib/st
 import { classifyNewVsKnown, registerSeen } from '@/lib/token-cache'
 import { buildStrategy, type ExecutionStrategy } from '@/lib/strategy'
 import { refOf, scoreBandi } from '@/lib/scoring'
+import { evaluateTenderForCompany } from '@/lib/evaluate'
 
 const PAGE_SIZE = 8
 const COMPANY_COOKIE = 'ban4ban_company'
@@ -192,13 +193,28 @@ export async function getGrantsPage(
   return { grants, page: p, totalPages, total, query, sort: sortKey, unfilteredTotal: allRaw.length }
 }
 
-// Output strategico (Step 6) per un bando: voto + giustificazione + checklist operativa.
+// Output strategico (Step 6) per un bando: analisi dettagliata (6 dimensioni + checklist
+// operativa) al click. Se l'AI è spenta/fallisce, lo scheletro resta (mai null per questo).
 export async function getStrategy(grantId: number): Promise<ExecutionStrategy | null> {
-  const companyId = (await resolveSelected())?.id ?? 'none'
-  const grant = findGrant(companyId, grantId)
+  const selected = await resolveSelected()
+  const grant = findGrant(selected?.id ?? 'none', grantId)
   if (!grant) return null
-  const { dna } = await getCompanyInfo()
-  return buildStrategy(dna, grant, new Date().toISOString())
+
+  const built = await getDnaFromDrive(selected?.id, selected?.name)
+  const evaluation = await evaluateTenderForCompany(
+    built?.corporateDna ?? null,
+    {
+      id: String(grant.id),
+      title: grant.title,
+      source: grant.sourceName ?? undefined,
+      // contesto disponibile: estratto + regione + scadenza + importo (il testo pieno non c'è)
+      text: [grant.description, grant.region && `Ambito: ${grant.region}`, grant.amount && `Importo: ${grant.amount}`]
+        .filter(Boolean)
+        .join('\n'),
+    },
+    { strengths: built?.companyDna.strengths, gaps: built?.companyDna.gaps }
+  )
+  return buildStrategy(built?.companyDna ?? null, grant, new Date().toISOString(), evaluation)
 }
 
 export async function getSearchHistory(): Promise<

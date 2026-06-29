@@ -1,5 +1,6 @@
 import 'server-only'
 import type { CompanyDna, Grant } from '@/lib/db/schema'
+import type { EvaluationResult } from '@/lib/evaluate'
 
 // CONTRATTO dell'output strategico (Step 6). Separiamo DATO e GRAFICA:
 //  - l'algoritmo di valutazione (Giuseppe + Emanuel) PRODUCE questo oggetto
@@ -32,12 +33,20 @@ export type ExecutionStrategy = {
   matching: StrategyMatchRow[] // tabella match / non-match (vuota finché non c'è l'analisi puntuale)
   checklist: StrategyChecklistItem[]
   milestone: StrategyMilestone[]
+  // Analisi dettagliata (motore di valutazione, al click). null se l'AI è spenta/fallisce:
+  // la pagina usa allora lo scheletro (giustificazione breve + checklist standard).
+  evaluation: EvaluationResult | null
 }
 
 // HOOK: costruisce lo "scheletro" della strategia con i DATI REALI disponibili
 // (anagrafica azienda dal DNA + dati bando dallo scraping) e lascia SEGNAPOSTO dove
 // serve l'AI (score, probabilità, matching specifico). Il team riempie qui.
-export function buildStrategy(dna: CompanyDna | null, grant: Grant, nowIso: string): ExecutionStrategy {
+export function buildStrategy(
+  dna: CompanyDna | null,
+  grant: Grant,
+  nowIso: string,
+  evaluation: EvaluationResult | null = null
+): ExecutionStrategy {
   const nome = dna?.nodes.find((n) => n.id === 'core')?.label ?? 'Azienda'
   return {
     generatedAt: nowIso,
@@ -52,9 +61,10 @@ export function buildStrategy(dna: CompanyDna | null, grant: Grant, nowIso: stri
       scadenza: grant.deadline ?? undefined,
       importo: grant.amount ?? undefined,
     },
-    // voto 1-10 + giustificazione, calcolati in fase di ricerca (algoritmo di valutazione)
-    score: grant.matchScore && grant.matchScore > 0 ? grant.matchScore : null,
-    giustificazione: grant.scoreReason ?? null,
+    // Voto dettagliato (analisi al click) se disponibile, altrimenti il voto rapido della ricerca.
+    score: evaluation?.final_score ?? (grant.matchScore && grant.matchScore > 0 ? grant.matchScore : null),
+    giustificazione: evaluation?.summary || grant.scoreReason || null,
+    evaluation,
     matching: [], // la tabella match puntuale arriverà con l'analisi dettagliata
 
     // checklist operativa standard (fattuale, non analisi): la valorizza poi l'algoritmo
