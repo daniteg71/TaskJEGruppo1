@@ -7,7 +7,7 @@ import type { Grant } from '@/lib/db/schema'
 import { scrapeGrants } from '@/lib/scrape'
 import { checkDriveConnection, listCompanyFolders, type DriveStatus } from '@/lib/drive'
 import { getDnaFromDrive } from '@/lib/dna-from-drive'
-import { APP_NAME, filterCompatible, folderUrl, getSelectedFolderId, placeholderDnaFromFiles } from '@/lib/company-config'
+import { APP_NAME, detectCompanyRegion, filterCompatible, folderUrl, getSelectedFolderId, placeholderDnaFromFiles } from '@/lib/company-config'
 import { addSearchRun, findGrant, getLatestRun, getRun, getRuns } from '@/lib/store'
 import { classifyNewVsKnown, registerSeen } from '@/lib/token-cache'
 import { buildStrategy, type ExecutionStrategy } from '@/lib/strategy'
@@ -77,12 +77,13 @@ export async function searchGrants() {
   })
 
   // DNA dell'azienda selezionata (cache incrementale). Robusto: niente DNA -> fallback nello scoring.
-  let companyDna = null
   let corporateDna = null
+  let companyRegion: string | null = null
   try {
     const built = await getDnaFromDrive(selected?.id, selected?.name)
-    companyDna = built?.companyDna ?? null
     corporateDna = built?.corporateDna ?? null
+    // Regione dell'azienda dedotta dai documenti reali (per il filtro geografico). null = incerto.
+    if (built?.docs?.length) companyRegion = detectCompanyRegion(built.docs.map((d) => d.text).join(' '))
   } catch {
     /* si procede senza DNA */
   }
@@ -101,7 +102,7 @@ export async function searchGrants() {
     strategy: null,
   }))
 
-  const { compatibili, scartati } = filterCompatible(companyDna, grants as Grant[])
+  const { compatibili, scartati } = filterCompatible(corporateDna, grants as Grant[], companyRegion)
   const scartatiData = scartati.map((s) => ({
     title: s.grant.title,
     sourceName: s.grant.sourceName,

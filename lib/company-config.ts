@@ -1,6 +1,7 @@
 import 'server-only'
 import { cookies } from 'next/headers'
 import type { CompanyDna, DriveFile, Grant } from '@/lib/db/schema'
+import type { CorporateDna } from '@/lib/corporate-dna'
 
 // Nome dell'applicazione (multi-azienda di test).
 export const APP_NAME = 'ban4ban'
@@ -27,31 +28,104 @@ export function folderUrl(folderId: string): string {
 // ----------------------------------------------------------------------------
 
 // ----------------------------------------------------------------------------
-// HOOK 2 — filtro REQUISITI MINIMI / compatibilità (Step 4).
-// Filtro booleano, gratis (niente AI): separa i bandi COMPATIBILI da quelli NON ammissibili.
-// Solo i compatibili andranno all'AI (Step 5) -> risparmio token.
-//
-// REGOLA PLACEHOLDER (da sostituire con l'algoritmo del team): scarta i bandi di settori
-// palesemente non attinenti all'azienda. Il vero confronto requisiti-bando ↔ DNA (ATECO,
-// certificazioni, fatturato) si aggancia qui quando arriva l'estrazione DNA + normalizzazione bandi.
+// FILTRO AMMISSIBILITÀ PER-AZIENDA (Step 4) — booleano, gratis (niente AI).
+// Separa i bandi AMMISSIBILI da quelli NON ammissibili PER QUESTA azienda, in base al DNA.
+// Prudente: scarta SOLO su mismatch evidente; nel dubbio tiene (lo gestisce poi il voto).
+//   1) SETTORE: bando chiaramente di un settore verticale a cui l'azienda non ha affinità.
+//   2) GEOGRAFIA: bando regionale di una regione diversa da quella dell'azienda.
+// Se non sappiamo nulla dell'azienda (DNA vuoto), NON si scarta per settore: senza profilo
+// non si può stabilire un mismatch (così aziende diverse danno conteggi diversi, non finti).
 // ----------------------------------------------------------------------------
-const SETTORI_NON_ATTINENTI: { rx: RegExp; motivo: string }[] = [
-  { rx: /editori|emittenti|radiofonic|televisiv|editrici|giornalis/i, motivo: 'Settore editoria/media non attinente' },
-  { rx: /agricol|pesca|itticolt|zootecn|forestal/i, motivo: 'Settore agricoltura/pesca non attinente' },
-  { rx: /spettacolo|cinema|teatr|festival/i, motivo: 'Settore spettacolo/cultura non attinente' },
+
+// Settori verticali: (rileva il bando, rileva l'affinità dell'azienda, motivo dello scarto).
+const VERTICAL_SECTORS: { bando: RegExp; company: RegExp; motivo: string }[] = [
+  {
+    bando: /agricol|agroaliment|zootecn|vitivinic|ortofrut|\brurale\b|forestal|florovivais/i,
+    company: /agricol|agroaliment|\bfood\b|aliment|rurale|forestal|vitivinic/i,
+    motivo: 'Settore agricolo/agroalimentare non attinente al profilo aziendale',
+  },
+  {
+    bando: /\bpesca\b|acquacolt|ittic|maricoltur/i,
+    company: /pesca|ittic|maritt|acquacolt/i,
+    motivo: 'Settore pesca/acquacoltura non attinente al profilo aziendale',
+  },
+  {
+    bando: /turism|ricettiv|alberghier|ospitalit|strutture ricettiv|stabiliment[oi] balnear|agrituris/i,
+    company: /turism|alberg|ospitalit|ricettiv|hotel|ristoraz/i,
+    motivo: 'Settore turistico-ricettivo non attinente al profilo aziendale',
+  },
+  {
+    bando: /spettacolo|cinema|teatr|festival|editori|emittent|radiofonic|televisiv|giornalis|audiovisiv|discografic/i,
+    company: /editori|spettacolo|cinema|cultura|\bmedia\b|giornalis|audiovisiv|comunicazion/i,
+    motivo: 'Settore cultura/editoria/spettacolo non attinente al profilo aziendale',
+  },
+  {
+    bando: /tessil|abbigliament|calzatur|conciar|pellett|\bmoda\b/i,
+    company: /tessil|abbigliament|\bmoda\b|calzatur|design|fashion/i,
+    motivo: 'Settore moda/tessile non attinente al profilo aziendale',
+  },
 ]
 
+// Sorgenti regionali -> regione del bando (per il filtro geografico).
+const SOURCE_REGION: Record<string, string> = {
+  'Lazio Innova': 'Lazio',
+  'Sviluppo Toscana': 'Toscana',
+  'Sardegna Impresa': 'Sardegna',
+}
+
+// Deduce la regione dell'azienda dal testo dei suoi documenti (best-effort, prudente:
+// ritorna null se incerto → nessun filtro geografico). Nome regione o città capoluogo.
+const REGION_HINTS: { region: string; rx: RegExp }[] = [
+  { region: 'Lazio', rx: /\blazio\b|\broma\b|latina|frosinone|viterbo|\brieti\b/i },
+  { region: 'Toscana', rx: /toscana|firenze|\bprato\b|\bpisa\b|livorno|arezzo|\bsiena\b|\blucca\b|grosseto/i },
+  { region: 'Sardegna', rx: /sardegna|cagliari|sassari|\bnuoro\b|oristano|\bolbia\b/i },
+  { region: 'Lombardia', rx: /lombardia|milano|bergamo|brescia|\bmonza\b|\bcomo\b|varese|\bpavia\b/i },
+  { region: 'Veneto', rx: /\bveneto\b|venezia|verona|padova|vicenza|treviso|rovigo|belluno/i },
+  { region: 'Piemonte', rx: /piemonte|torino|\bcuneo\b|alessandria|\bnovara\b|\basti\b/i },
+  { region: 'Emilia-Romagna', rx: /emilia|bologna|\bmodena\b|parma|reggio emilia|ferrara|ravenna|rimini|forl/i },
+  { region: 'Campania', rx: /campania|napoli|salerno|caserta|avellino|benevento/i },
+  { region: 'Puglia', rx: /\bpuglia\b|\bbari\b|taranto|\blecce\b|foggia|brindisi|andria/i },
+  { region: 'Sicilia', rx: /sicilia|palermo|catania|messina|siracusa|trapani|ragusa|agrigento/i },
+]
+
+export function detectCompanyRegion(text: string): string | null {
+  for (const h of REGION_HINTS) if (h.rx.test(text)) return h.region
+  return null
+}
+
 export function filterCompatible<T extends Grant>(
-  _dna: CompanyDna | null,
-  grants: T[]
+  dna: CorporateDna | null,
+  grants: T[],
+  companyRegion?: string | null
 ): { compatibili: T[]; scartati: { grant: T; motivo: string }[] } {
   const compatibili: T[] = []
   const scartati: { grant: T; motivo: string }[] = []
+
+  // Profilo testuale dell'azienda (competenze + ateco + ragione sociale) per l'affinità di settore.
+  const profile = dna ? [...(dna.comp ?? []), ...(dna.ateco ?? []), dna.rag_soc ?? ''].join(' ').toLowerCase() : ''
+
   for (const g of grants) {
-    const hay = `${g.title} ${g.description ?? ''}`
-    const match = SETTORI_NON_ATTINENTI.find((s) => s.rx.test(hay))
-    if (match) scartati.push({ grant: g, motivo: match.motivo })
-    else compatibili.push(g)
+    const hay = `${g.title} ${g.description ?? ''}`.toLowerCase()
+
+    // 1) Settore: scarta solo se conosciamo il profilo E il bando è di un settore verticale estraneo.
+    if (profile) {
+      const sec = VERTICAL_SECTORS.find((s) => s.bando.test(hay) && !s.company.test(profile))
+      if (sec) {
+        scartati.push({ grant: g, motivo: sec.motivo })
+        continue
+      }
+    }
+
+    // 2) Geografia: scarta i bandi regionali di una regione diversa da quella dell'azienda.
+    if (companyRegion) {
+      const bandoRegion = SOURCE_REGION[g.sourceName ?? '']
+      if (bandoRegion && bandoRegion !== companyRegion) {
+        scartati.push({ grant: g, motivo: `Bando regionale (${bandoRegion}) fuori dall'area dell'azienda (${companyRegion})` })
+        continue
+      }
+    }
+
+    compatibili.push(g)
   }
   return { compatibili, scartati }
 }
