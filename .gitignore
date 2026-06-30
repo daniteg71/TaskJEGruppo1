@@ -9,6 +9,9 @@ out/
 next-env.d.ts
 .vercel
 
+# Skill locali di Claude Code (tooling, non codice dell'app)
+.claude/skills/
+
 # Credenziali service account / chiavi: MAI nel repo (vanno solo in .env.local / Vercel)
 *service-account*.json
 *service_account*.json
