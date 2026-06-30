@@ -172,7 +172,7 @@ function companyForPrompt(dna: CorporateDna, extra?: { strengths?: string[]; gap
     vat_number: dna.p_iva || undefined,
     ateco_primary: dna.ateco?.[0],
     ateco_secondary: dna.ateco?.slice(1),
-    sectors: dna.ateco ?? [],
+    sectors: [...(dna.settori ?? []), ...(dna.ateco ?? [])],
     services: dna.comp ?? [],
     certifications: dna.cert ?? [],
     past_projects: (dna.esperienze ?? []).map((e) => e.desc).filter(Boolean),

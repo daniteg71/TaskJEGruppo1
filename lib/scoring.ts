@@ -47,7 +47,7 @@ function localAffinity(dna: CorporateDna | null, it: ScoreInput): BandoScore {
   const hay = `${it.title} ${it.text}`.toLowerCase()
   const terms = new Set<string>()
   if (dna) {
-    for (const s of [...(dna.comp ?? []), ...(dna.cert ?? []), ...(dna.ateco ?? [])]) {
+    for (const s of [...(dna.comp ?? []), ...(dna.cert ?? []), ...(dna.ateco ?? []), ...(dna.settori ?? [])]) {
       for (const w of String(s).toLowerCase().split(/[^a-zà-ù0-9]+/)) if (w.length > 3) terms.add(w)
     }
   }
@@ -91,6 +91,7 @@ async function geminiBatch(dna: CorporateDna, items: ScoreInput[]): Promise<Reco
   const profilo = {
     rag_soc: dna.rag_soc,
     ateco: dna.ateco,
+    settori: dna.settori,
     cert: dna.cert,
     comp: dna.comp,
     fin: dna.fin,

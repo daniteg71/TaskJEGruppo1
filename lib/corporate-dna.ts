@@ -22,5 +22,6 @@ export type CorporateDna = {
   }
   cert: string[] // es. "ISO-9001", "ISO-27001"
   comp: string[] // competenze chiave
+  settori: string[] // settori merceologici in chiaro (etichette derivate dagli ATECO o dall'AI)
   esperienze: CorporateExperience[]
 }

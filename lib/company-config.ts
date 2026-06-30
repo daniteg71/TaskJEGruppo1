@@ -102,7 +102,9 @@ export function filterCompatible<T extends Grant>(
   const scartati: { grant: T; motivo: string }[] = []
 
   // Profilo testuale dell'azienda (competenze + ateco + ragione sociale) per l'affinità di settore.
-  const profile = dna ? [...(dna.comp ?? []), ...(dna.ateco ?? []), dna.rag_soc ?? ''].join(' ').toLowerCase() : ''
+  const profile = dna
+    ? [...(dna.comp ?? []), ...(dna.settori ?? []), ...(dna.ateco ?? []), dna.rag_soc ?? ''].join(' ').toLowerCase()
+    : ''
 
   for (const g of grants) {
     const hay = `${g.title} ${g.description ?? ''}`.toLowerCase()

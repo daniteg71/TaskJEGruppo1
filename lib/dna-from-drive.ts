@@ -108,6 +108,7 @@ const AI_SCHEMA: GeminiSchema = {
         },
         cert: { type: 'array', items: { type: 'string' } },
         comp: { type: 'array', items: { type: 'string' } },
+        settori: { type: 'array', items: { type: 'string' } },
         esperienze: {
           type: 'array',
           items: {
@@ -173,6 +174,8 @@ function normalizeAi(raw: Partial<AiSynthesis> | null): AiSynthesis | null {
       },
       cert: cleanArr(c.cert),
       comp: cleanArr(c.comp),
+      // settori in chiaro: usa quelli dell'AI se presenti, altrimenti derivali dagli ATECO.
+      settori: cleanArr(c.settori).length ? cleanArr(c.settori) : atecoToSectors(cleanArr(c.ateco)),
       esperienze: (c.esperienze ?? [])
         .filter((e) => cleanStr(e?.desc))
         .map((e, i) => ({
@@ -201,7 +204,8 @@ async function synthesizeWithGemini(docs: DriveDoc[]): Promise<AiSynthesis | nul
   const corpus = docs.map((d) => `### ${d.name}\n${d.text}`).join('\n\n').slice(0, 24000)
   const prompt = `Sei un analista che estrae il "DNA aziendale" dai documenti reali di un'azienda
 (presi dal suo Google Drive). Ti fornisco il testo dei file. Produci un JSON con:
-- "corporate": dati strutturati (partita IVA, ragione sociale, codici ATECO, dati finanziari,
+- "corporate": dati strutturati (partita IVA, ragione sociale, codici ATECO, "settori"
+  merceologici in chiaro es. "edilizia e costruzioni"/"informatica e software", dati finanziari,
   certificazioni, competenze chiave, esperienze/progetti con valore in euro);
 - "nodes": 5-10 nodi che riassumono i punti chiave dell'azienda (ogni nodo ha label, group, value 0-100, summary);
 - "headline": una frase che sintetizza l'azienda;
@@ -328,6 +332,50 @@ function parseEuro(raw: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+// Etichetta di settore in chiaro per la DIVISIONE ATECO (prime 2 cifre del codice).
+// Serve a dare al profilo aziendale parole-chiave di settore reali (i codici "62.01" non
+// matchano nulla); usate dal filtro ammissibilità, dallo scoring e dalla valutazione.
+function sectorForDivision(d: number): string | null {
+  if (d >= 1 && d <= 3) return 'agricoltura, silvicoltura e pesca'
+  if (d >= 5 && d <= 9) return 'estrazione di minerali'
+  if (d >= 10 && d <= 12) return 'industria alimentare e delle bevande'
+  if (d >= 13 && d <= 15) return 'tessile, abbigliamento e calzature'
+  if (d >= 16 && d <= 18) return 'legno, carta, editoria e stampa'
+  if (d >= 19 && d <= 23) return 'chimica, farmaceutica, plastica e materiali'
+  if (d >= 24 && d <= 25) return 'metallurgia e prodotti in metallo'
+  if (d >= 26 && d <= 28) return 'elettronica, elettrotecnica e macchinari'
+  if (d >= 29 && d <= 30) return 'automotive e mezzi di trasporto'
+  if (d >= 31 && d <= 33) return 'altre manifatture e riparazioni'
+  if (d === 35) return 'energia elettrica e gas'
+  if (d >= 36 && d <= 39) return 'acqua, rifiuti e ambiente'
+  if (d >= 41 && d <= 43) return 'edilizia e costruzioni'
+  if (d >= 45 && d <= 47) return 'commercio'
+  if (d >= 49 && d <= 53) return 'trasporti e logistica'
+  if (d >= 55 && d <= 56) return 'turismo, ricettività e ristorazione'
+  if (d >= 58 && d <= 60) return 'editoria, media e produzioni audiovisive'
+  if (d >= 61 && d <= 63) return 'informatica, software e telecomunicazioni'
+  if (d >= 64 && d <= 66) return 'servizi finanziari e assicurativi'
+  if (d === 68) return 'attività immobiliari'
+  if (d >= 69 && d <= 75) return 'consulenza, servizi professionali e progettazione'
+  if (d >= 77 && d <= 82) return 'servizi alle imprese e noleggio'
+  if (d === 84) return 'pubblica amministrazione'
+  if (d === 85) return 'istruzione e formazione'
+  if (d >= 86 && d <= 88) return 'sanità e assistenza sociale'
+  if (d >= 90 && d <= 93) return 'attività artistiche, culturali e sportive'
+  if (d >= 94 && d <= 96) return 'altri servizi alla persona'
+  return null
+}
+
+export function atecoToSectors(ateco: string[]): string[] {
+  const out = new Set<string>()
+  for (const code of ateco) {
+    const div = Number.parseInt(String(code).replace(/\D.*$/, '').slice(0, 2), 10)
+    const label = Number.isFinite(div) ? sectorForDivision(div) : null
+    if (label) out.add(label)
+  }
+  return [...out]
+}
+
 export function extractCorporateDna(docs: DriveDoc[]): CorporateDna {
   const all = docs.map((d) => d.text).join('\n').toLowerCase()
   const allRaw = docs.map((d) => d.text).join('\n')
@@ -379,6 +427,7 @@ export function extractCorporateDna(docs: DriveDoc[]): CorporateDna {
     fin: { ult_bilancio_anno, fatturato, cap_sociale, utile_netto },
     cert,
     comp,
+    settori: atecoToSectors(ateco),
     esperienze,
   }
 }
