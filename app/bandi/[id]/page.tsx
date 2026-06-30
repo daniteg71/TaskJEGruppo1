@@ -5,11 +5,20 @@ import { getCompanyInfo, getStrategy } from '@/app/actions/company'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StrategyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StrategyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ b?: string }>
+}) {
   const { id } = await params
+  const { b } = await searchParams
   if (!id) notFound()
 
-  const [{ company, companies, selectedId }, strategy] = await Promise.all([getCompanyInfo(), getStrategy(id)])
+  // `b`: snapshot del bando nell'URL (approccio Gustavo) → la strategia si ricostruisce senza
+  // lo store in-memory. Senza `b`, fallback alla ricostruzione dal pool tramite il ref (id).
+  const [{ company, companies, selectedId }, strategy] = await Promise.all([getCompanyInfo(), getStrategy(id, b)])
   if (!strategy) notFound()
 
   return (

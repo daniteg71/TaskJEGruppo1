@@ -200,56 +200,93 @@ export async function getGrantsPage(
   return { grants, page: p, totalPages, total, query, sort: sortKey, unfilteredTotal: allRaw.length }
 }
 
-// Output strategico per un bando, identificato dal REF STABILE (hash fonte+link).
-// Ricostruisce il bando dal POOL CONDIVISO (non dallo store in-memory): così funziona anche
-// dopo un cold-start o su un'altra istanza lambda → niente più 404. Se l'AI è spenta/fallisce,
-// resta lo scheletro (voto rapido + checklist standard).
-export async function getStrategy(ref: string): Promise<ExecutionStrategy | null> {
-  const selected = await resolveSelected()
-
-  // 1) Trova il bando nel pool condiviso tramite il ref stabile.
-  const pool = await getGrantsPool()
-  const raw = pool.find((r) => refOf({ source: r.source, link: r.link }) === ref)
+// Ricostruisce un Grant dallo "snapshot" JSON passato nell'URL (?b=) dal link "Strategia".
+// Approccio di Gustavo (gusuzin, PR #2): la pagina NON dipende dallo store in-memory (che sul
+// serverless si azzera tra istanze → 404), perché i dati del bando viaggiano nell'URL.
+function grantFromSnapshot(raw: string | undefined, companyId: string): Grant | null {
   if (!raw) return null
-
-  // 2) Ricostruisce il Grant dai dati del pool (lo store non serve più qui).
-  const grant: Grant = {
-    id: 0,
-    ref,
-    companyId: selected?.id ?? 'none',
-    title: raw.title,
-    sourceUrl: raw.link,
-    sourceName: raw.source,
-    description: raw.snippet,
-    deadline: 'Da verificare',
-    amount: 'Da verificare',
-    category: null,
-    region: regioneOf(raw.source),
-    matchScore: 0,
-    scoreReason: null,
-    strategy: null,
-    createdAt: new Date(),
+  try {
+    const s = JSON.parse(raw) as Partial<Grant>
+    if (!s || typeof s.title !== 'string' || !s.title) return null
+    return {
+      id: 0,
+      ref: refOf({ source: s.sourceName, link: s.sourceUrl }),
+      companyId,
+      title: s.title,
+      sourceUrl: s.sourceUrl ?? null,
+      sourceName: s.sourceName ?? null,
+      description: s.description ?? null,
+      deadline: s.deadline ?? null,
+      amount: s.amount ?? null,
+      category: null,
+      region: s.region ?? null,
+      matchScore: typeof s.matchScore === 'number' ? s.matchScore : null,
+      scoreReason: s.scoreReason ?? null,
+      strategy: null,
+      createdAt: new Date(),
+    }
+  } catch {
+    return null
   }
+}
 
-  // 3) DNA dell'azienda (una sola volta qui: getCompanyInfo non lo costruisce più sulla strategia).
+// Output strategico per un bando. PRIMARIO: snapshot del bando nell'URL (approccio Gustavo) →
+// indipendente da store/istanza/cold-start. FALLBACK: URL "nuda" (senza ?b=) → ricostruzione
+// dal pool condiviso tramite il ref stabile. In entrambi i casi: niente più 404 dallo store.
+export async function getStrategy(idOrRef: string, snapshotRaw?: string): Promise<ExecutionStrategy | null> {
+  const selected = await resolveSelected()
+  const companyId = selected?.id ?? 'none'
+
+  // 1) PRIMARIO: snapshot nell'URL.
+  let grant = grantFromSnapshot(snapshotRaw, companyId)
+
+  // 2) FALLBACK: ricostruisci dal pool condiviso col ref (URL "nude"/condivise senza snapshot).
+  if (!grant) {
+    const pool = await getGrantsPool()
+    const raw = pool.find((r) => refOf({ source: r.source, link: r.link }) === idOrRef)
+    if (raw) {
+      grant = {
+        id: 0,
+        ref: idOrRef,
+        companyId,
+        title: raw.title,
+        sourceUrl: raw.link,
+        sourceName: raw.source,
+        description: raw.snippet,
+        deadline: 'Da verificare',
+        amount: 'Da verificare',
+        category: null,
+        region: regioneOf(raw.source),
+        matchScore: 0,
+        scoreReason: null,
+        strategy: null,
+        createdAt: new Date(),
+      }
+    }
+  }
+  if (!grant) return null
+
+  const ref = grant.ref ?? refOf({ source: grant.sourceName, link: grant.sourceUrl })
   const built = await getDnaFromDrive(selected?.id, selected?.name)
   const corporateDna = built?.corporateDna ?? null
 
-  // 4) Voto rapido (fallback) così la pagina mostra sempre un punteggio anche senza l'analisi AI.
-  try {
-    const scores = await scoreBandi(corporateDna, [
-      { ref, title: grant.title, source: grant.sourceName ?? '', text: grant.description ?? '' },
-    ])
-    const s = scores[ref]
-    if (s) {
-      grant.matchScore = s.score
-      grant.scoreReason = s.reason
+  // Voto rapido se non arriva già dallo snapshot (così la pagina mostra sempre un punteggio).
+  if (grant.matchScore == null || grant.matchScore <= 0) {
+    try {
+      const scores = await scoreBandi(corporateDna, [
+        { ref, title: grant.title, source: grant.sourceName ?? '', text: grant.description ?? '' },
+      ])
+      const s = scores[ref]
+      if (s) {
+        grant.matchScore = s.score
+        grant.scoreReason = s.reason
+      }
+    } catch {
+      /* la strategia funziona anche senza voto rapido */
     }
-  } catch {
-    /* la strategia funziona anche senza voto rapido */
   }
 
-  // 5) Analisi dettagliata (6 dimensioni + checklist) — cache per (ref + versione DNA).
+  // Analisi dettagliata (6 dimensioni + checklist) — cache per (ref + versione DNA).
   const evaluation = await evaluateTenderForCompany(
     corporateDna,
     {
